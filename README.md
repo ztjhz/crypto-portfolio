@@ -2,14 +2,14 @@
 
 # Functions:
 
-1. Add transactions
-2. Automatically updates CoinGecko online portfolio
-3. Calculate average purchase price of coins
-4. Calculate profit per coin
-5. Calculate portfolio change over time
-6. Display a graph of my portfolio value over time
-7. Read and save data into an sqlite database
-8. Upload csv file as transaction data
+- Add transactions
+- Automatically updates CoinGecko online portfolio
+- Calculate average purchase price of coins
+- Calculate profit per coin
+- Calculate portfolio change over time
+- Display a graph of my portfolio value over time
+- Read and save data into an sqlite database
+- Upload csv file as transaction data
 
 # File directory:
 - /Crypto
