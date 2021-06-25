@@ -210,6 +210,11 @@ def getPriceDF(currency):
             price = price_dict[coinID][currency]
         else:
             price = 0
+            if coinID == 'us dollar':
+                if currency == 'sgd':
+                    price = USDSGD
+                elif currency =='usd':
+                    price = 1
         price_df = price_df.append(portfolio_df.loc[COINS[i]].map(lambda x: x * price))
     
     price_df = sortPortfolioColumns(price_df)
