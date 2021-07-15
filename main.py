@@ -28,7 +28,7 @@ def get_yahoo_finance_USD_SGD_rate():
     except requests.exceptions.RequestException as e:
         print(e)
     
-    USDSGD = float(response.html.xpath("//span[@data-reactid='32']")[0].text)
+    USDSGD = float(response.html.xpath("//div[@data-reactid='30']/span[@data-reactid='31']")[0].text)
     return(USDSGD)
 
 def get_mas_USD_SGD_rate():
