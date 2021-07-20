@@ -10,24 +10,29 @@ const main = () => {
       datasets: [
         {
           label: 'Profit (SGD)',
-          borderColor: '#e76f51',
+          borderColor: '#264653',
+          borderDash: [3, 3],
           borderWidth: 1,
           radius: 0,
           data: data_sgd,
+          tension: 0.2,
         },
         {
           label: 'Total Deposited (SGD)',
           borderColor: '#2a9d8f',
-          borderWidth: 1,
+          backgroundColor: 'rgba(42,157,143, 0.3)',
+          fill: true,
+          borderWidth: 2,
           radius: 0,
           data: total_deposited_sgd,
         },
         {
           label: 'Portfolio Value (SGD)',
-          borderColor: '#f4a261',
+          borderColor: '#e76f51',
           borderWidth: 1,
           radius: 0,
           data: portfolio_sgd,
+          tension: 0.2,
         },
       ],
     },
@@ -42,7 +47,16 @@ const main = () => {
         },
         title: {
           display: true,
-          text: 'Profit Over Time',
+          text: 'Portfolio',
+        },
+      },
+      scales: {
+        x: {
+          display: true,
+          title: {
+            display: true,
+            text: 'Time',
+          },
         },
       },
     },

@@ -197,6 +197,7 @@ def displayOptions():
     print('c. Add cashback')
     print('u. Upload app transaction file')
     print('g. Display Graph')
+    print('gg. Display Graph (web)')
 
 def sortPortfolioColumns(df):
     col = df.pop('TOTAL')
@@ -1079,6 +1080,9 @@ def main():
         
         elif choice == 'g':
             display_graph()
+        
+        elif choice == 'gg':
+            display_graph_web();
 
 '''
 # add transaction function for updateRecord function
