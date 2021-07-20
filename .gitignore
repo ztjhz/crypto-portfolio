@@ -1,0 +1,9 @@
+__pycache__/
+.vscode/
+app_transaction/
+helper functions/
+Record/
+web_src/data.js
+.env
+chromedriver.exe
+crypto.db

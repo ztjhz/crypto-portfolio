@@ -17,6 +17,8 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
 
+import webbrowser
+
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
@@ -249,6 +251,17 @@ def display_graph():
     plt.tight_layout()
     fg.autofmt_xdate()
     plt.show()
+
+def display_graph_web():
+    labels = [date for date in record_df.index]
+    data_sgd = [val for val in record_df["TOTAL P/L"]]
+    total_deposited_sgd = [val for val in record_df["TOTAL DEPOSITED"]]
+    portfolio_sgd = [val for val in record_df["PORTFOLIO VALUE"]]
+
+    with open("web_src/data.js", "w") as f:
+        f.write(f"const data = {{labels:{labels},data_sgd:{data_sgd},total_deposited_sgd:{total_deposited_sgd},portfolio_sgd:{portfolio_sgd}}}")
+
+    webbrowser.get("windows-default").open(f"{os.getcwd()}/web_src/graph.html")
 
 # save to database
 def save_data():
