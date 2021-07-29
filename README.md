@@ -8,6 +8,7 @@
 - Calculate profit per coin
 - Calculate portfolio change over time
 - Display a graph of my portfolio value over time
+- Display graph in web browser
 - Read and save data into an sqlite database
 - Upload csv file as transaction data
 
