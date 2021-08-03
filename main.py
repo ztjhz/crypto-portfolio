@@ -719,6 +719,12 @@ def uploadCryptoTransaction():
             amount = abs(float(row['Native Amount']))
             withdraw("APP", amount, coin, quantity, remarks)
 
+        # USD bank transfer to USDC
+        elif transaction_type == 'usdc_bank_deposit':
+            amount = abs(float(row['Native Amount']))
+            remarks = f"Deposit ${amount} USD (${amount * USDSGD} SGD) via USD bank transfer"
+            deposit("APP", amount * USDSGD, coin, quantity, remarks)
+
         
 
 
