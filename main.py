@@ -257,10 +257,18 @@ def display_graph_web():
     labels = [date for date in record_df.index]
     data_sgd = [val for val in record_df["TOTAL P/L"]]
     total_deposited_sgd = [val for val in record_df["TOTAL DEPOSITED"]]
+    total_withdrawn_sgd = [val for val in record_df["TOTAL WITHDRAWN"]]
     portfolio_sgd = [val for val in record_df["PORTFOLIO VALUE"]]
 
+    #  net deposit = total deposited - total withdrawn
+    net_deposit = []
+    for i, row in record_df.iterrows():
+        d = row['TOTAL DEPOSITED']
+        w = row['TOTAL WITHDRAWN']
+        net_deposit.append(d - w)
+
     with open("web_src/data.js", "w") as f:
-        f.write(f"const data = {{labels:{labels},data_sgd:{data_sgd},total_deposited_sgd:{total_deposited_sgd},portfolio_sgd:{portfolio_sgd}}}")
+        f.write(f"const data = {{labels:{labels},data_sgd:{data_sgd},total_deposited_sgd:{total_deposited_sgd},total_withdrawn_sgd:{total_withdrawn_sgd},net_deposit:{net_deposit},portfolio_sgd:{portfolio_sgd}}}")
 
     webbrowser.get("windows-default").open(f"{os.getcwd()}/web_src/graph.html")
 

@@ -1,7 +1,14 @@
 const main = () => {
   let ctx = document.getElementById('myChart').getContext('2d');
 
-  const { labels, data_sgd, total_deposited_sgd, portfolio_sgd } = data;
+  const {
+    labels,
+    data_sgd,
+    total_deposited_sgd,
+    net_deposit,
+    portfolio_sgd,
+    total_withdrawn_sgd,
+  } = data;
 
   const config = {
     type: 'line',
@@ -20,11 +27,27 @@ const main = () => {
         {
           label: 'Total Deposited (SGD)',
           borderColor: '#2a9d8f',
+          borderDash: [3, 3],
+          borderWidth: 2,
+          radius: 0,
+          data: total_deposited_sgd,
+        },
+        {
+          label: 'Total Withdrawn (SGD)',
+          borderColor: '#e76f51',
+          borderDash: [3, 3],
+          borderWidth: 2,
+          radius: 0,
+          data: total_withdrawn_sgd,
+        },
+        {
+          label: 'Net Deposit (SGD)',
+          borderColor: '#2a9d8f',
           backgroundColor: 'rgba(42,157,143, 0.3)',
           fill: true,
           borderWidth: 2,
           radius: 0,
-          data: total_deposited_sgd,
+          data: net_deposit,
         },
         {
           label: 'Portfolio Value (SGD)',
