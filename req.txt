@@ -1,0 +1,14 @@
+numpy
+requests_html
+pandas
+datetime
+json
+requests
+time
+os
+pprint
+matplotlib
+selenium
+webbrowser
+sqlalchemy
+dotenv
