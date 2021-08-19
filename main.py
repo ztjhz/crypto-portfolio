@@ -336,11 +336,12 @@ def updateCoinGecko():
 
     # accept cookies
     browser.find_element_by_xpath("//button[@data-action='click->cookie-note#accept']").click()
-
+    
     # Log in
-    browser.find_element_by_id('user_email').send_keys(f'{username}')
-    browser.find_element_by_id('user_password').send_keys(f'{password}')
-    browser.find_element_by_xpath("//input[@value = 'Log in']").submit()
+    browser.find_element_by_xpath("//button[@data-target = '#signInModal']").click()
+    browser.find_element_by_id('signInEmail').send_keys(f'{username}')
+    browser.find_element_by_id('signInPassword').send_keys(f'{password}')
+    browser.find_element_by_xpath("//input[@value = 'Login']").submit()
 
     updated = False
 
@@ -348,14 +349,15 @@ def updateCoinGecko():
         if browser.current_url != portfolio_url:
             browser.get(portfolio_url)
         # Get links to the different coins
-        elements = browser.find_elements_by_xpath("//td[@class = 'text-right col-gecko no-wrap']/a")
+        elements = browser.find_elements_by_xpath("//td[@class = 'text-right col-gecko no-wrap holding-val']/a")
 
         all_links = {}
         quantity_list = []
         unstarList = []
         for element in elements:
             link = element.get_attribute('href')
-            oldQuantity, symbol = element.find_elements_by_xpath(".//div[@class='text-black']")[1].text.split(' ')
+            oldQuantity, symbol = element.find_elements_by_xpath(".//div[@class='text-black']/span")[3].text.split(' ')
+
             if symbol not in portfolio_df.index:
                 unstarList.append(symbol)
                 continue
@@ -391,14 +393,15 @@ def updateCoinGecko():
                 edit_button = browser.find_element_by_xpath("//td/a[@class='text-primary']")
                 edit_button.click()
                 transaction_type = 'edit'
+                current_quantity = browser.find_element_by_xpath("//td[@class='text-right']/span[@class='text-green']").text.lstrip("+")
 
             except NoSuchElementException:
                 # add new transaction
                 new_transaction_button = browser.find_element_by_xpath("//div/a[@data-action='click->portfolio-coin-transactions-new#updateCoinIdValue']")
                 new_transaction_button.click()
                 transaction_type = 'new'
+                current_quantity = 0
 
-            current_quantity = browser.find_element_by_xpath("//td[@class='text-right']/span[@class='text-green']").text.lstrip("+")
             # enter new value into quantity
             quantity_field = browser.find_element_by_xpath(f"//input[@id='portfolio-coin-transactions-{transaction_type}_portfolio_coin_transaction_quantity']")
             if current_quantity != quantity:
