@@ -708,6 +708,14 @@ def uploadCryptoTransaction():
             remarks = f"Convert from {abs(fromQuantity)} {fromCoin} to {toQuantity} {toCoin} on APP"
             add_transactions("APP", fromCoin, fromQuantity, "CONVERT", remarks)
             add_transactions("APP", toCoin, toQuantity, "CONVERT", remarks)
+        
+        # Supercharger App reward
+        elif transaction_type == 'supercharger_reward_to_app_credited':
+            remarks = "CRYPTO.COM SUPERCHARGER APP REWARD"
+            if coin not in coin_id_df.index:
+                addCoin(coin)
+            add_transactions("APP", coin, quantity, "STAKING REWARD", remarks)
+
 
         # Buy Crypto via Xfers
         elif transaction_type == 'xfers_purchase':
@@ -764,6 +772,31 @@ def uploadCryptoTransaction():
         for tx in ignored_transactions:
             print(tx)
 
+def addCoin(coin=None):
+    global portfolio_df, coin_id_df, average_cost_df
+
+    if not coin:
+        coin = input('Enter symbol of the coin: ').upper()
+    # add coin to portfolio dataframe
+    temp_dict = {}
+    for i in PLATFORM:
+        temp_dict[i] = [0]
+    temp_dict['TOTAL'] = [0]
+    df = pd.DataFrame(temp_dict, index= [coin])
+    df.index.name = 'SYMBOL'
+    portfolio_df = portfolio_df.append(df)
+    portfolio_df.sort_index(inplace=True)
+
+    coinID = input(f'Enter coin id of {coin} from CoinGecko: ')
+    if coin not in coin_id_df.index:
+        coin_id_df = coin_id_df.append(pd.Series({"COIN ID": coinID, 'ACTIVE': True}, name=coin))
+        coin_id_df.sort_values(by = ['ACTIVE', "SYMBOL"], ascending=[False, True], inplace=True)
+        average_cost_df = average_cost_df.append(pd.Series({'TOTAL COST': 0,'TOTAL QUANTITY': 0,'AVERAGE COST': 0, 'ACTIVE': True}, name = coin))
+        average_cost_df.sort_values(by = ['ACTIVE', 'SYMBOL'], ascending = [False, True], inplace=True)
+    else:
+        coin_id_df.loc[coin, "ACTIVE"] = True
+        average_cost_df.loc[coin, "ACTIVE"] = True
+    print(f'\n{coin} has been added.\n')
 
 def printHeading(heading):
     print("-"*len(heading))
@@ -992,8 +1025,10 @@ def main():
         elif choice == '7':
             choice2 = input('Add (a) / Remove (r): ')
             if choice2.lower() == 'a':
-                coin = input('Enter symbol of the coin: ').upper()
+                addCoin()
                 
+                '''
+                coin = input('Enter symbol of the coin: ').upper()
                 # add coin to portfolio dataframe
                 temp_dict = {}
                 for i in PLATFORM:
@@ -1004,7 +1039,6 @@ def main():
                 portfolio_df = portfolio_df.append(df)
                 portfolio_df.sort_index(inplace=True)
 
-                # add coin to json file
                 coinID = input('Enter coin id from CoinGecko: ')
                 if coin not in coin_id_df.index:
                     coin_id_df = coin_id_df.append(pd.Series({"COIN ID": coinID, 'ACTIVE': True}, name=coin))
@@ -1015,6 +1049,7 @@ def main():
                     coin_id_df.loc[coin, "ACTIVE"] = True
                     average_cost_df.loc[coin, "ACTIVE"] = True
                 print(f'\n{coin} has been added.\n')
+                '''
 
             elif choice2.lower() == 'r':
                 displayCoinsAvailable()
