@@ -80,6 +80,9 @@ print("Obtained USDSGD rate!\n")
 
 DATE = datetime.date.today().strftime('%d/%m/%Y')
 record_date = datetime.date.today().strftime('%d-%m-%Y')
+# Go back in time
+# DATE = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d/%m/%Y')
+# record_date = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d-%m-%Y')
 readFileName = "crypto.db"
 recordFolderName = f"Record/{datetime.date.today().strftime('%Y-%m')}"
 if not os.path.exists(recordFolderName):
