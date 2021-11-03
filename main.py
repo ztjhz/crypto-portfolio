@@ -30,7 +30,7 @@ def get_yahoo_finance_USD_SGD_rate():
     except requests.exceptions.RequestException as e:
         print(e)
     
-    USDSGD = float(response.html.xpath("//div[@data-reactid='30']/span[@data-reactid='31']")[0].text)
+    USDSGD = float(response.html.xpath("//div[@data-reactid='28']/span[@data-reactid='29']")[0].text)
     return(USDSGD)
 
 def get_mas_USD_SGD_rate():
@@ -75,6 +75,7 @@ CASHBACK = ["3% CASHBACK", "NETFLIX REBATE", "SPOTIFY REBATE", "CRYPTO PAY"]
 # get exchange rate data
 print("Getting USDSGD rate...")
 USDSGD = get_yahoo_finance_USD_SGD_rate()
+print(USDSGD)
 print("Obtained USDSGD rate!\n")
 
 
