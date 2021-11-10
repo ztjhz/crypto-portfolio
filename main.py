@@ -75,7 +75,6 @@ CASHBACK = ["3% CASHBACK", "NETFLIX REBATE", "SPOTIFY REBATE", "CRYPTO PAY"]
 # get exchange rate data
 print("Getting USDSGD rate...")
 USDSGD = get_yahoo_finance_USD_SGD_rate()
-print(USDSGD)
 print("Obtained USDSGD rate!\n")
 
 
@@ -501,14 +500,16 @@ def calculateAveragePrice(coin):
         total_quantity = average_cost_df.loc[coin, 'TOTAL QUANTITY']
         average_cost = average_cost_df.loc[coin, 'AVERAGE COST']
     coin_tx_df = tx_df[(tx_df['COIN'] == coin) & (tx_df['CALCULATED'] == False)]
-
+    hist_prices = {}
     for i, row in coin_tx_df.iterrows():
         type = row['TYPE']
         quantity = row['QUANTITY']
         date = row['DATE']
         if date == DATE:
             continue
-        price = getHistoricalPrice(coin_id_df.loc[coin, 'COIN ID'], date)
+        if coin not in hist_prices:
+            hist_prices[coin] = getHistoricalPrice(coin_id_df.loc[coin, 'COIN ID'], date)
+        price = hist_prices[coin]
         print(coin, date, type, quantity, price, end="")
 
         if type in IGN_TX:
