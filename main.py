@@ -1,15 +1,10 @@
 """ Libararies """
-from numpy.core.fromnumeric import transpose
-# from requests_html import HTMLSession
 import pandas as pd
 import datetime
 import json
-# import requests
 import time
 import os
 from pprint import pprint
-import matplotlib.pyplot as plt
-import matplotlib
 
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.options import Options
@@ -17,8 +12,6 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support.ui import WebDriverWait
-
-import webbrowser
 
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
@@ -214,48 +207,6 @@ def addTransactionFee(remarks):
         input("Enter where the tx fees were deducted from: "))]
     remarks = '(Transaction Fees) ' + remarks
     add_transactions(platform, coin, quantity, Type, remarks)
-
-
-# def display_graph():
-#     dates = pd.Series(x for x in record_df.index)
-#     tick_interval = int(len(record_df.index) / 26)
-
-#     matplotlib.style.use('ggplot')
-
-#     fg, ax = plt.subplots(figsize=(12, 7))
-#     ax.plot(dates, record_df["TOTAL P/L"] / 1.33, label="1")
-#     #ax.plot(dates, record_df["PORTFOLIO VALUE"], label="2", linestyle="dashed")
-
-#     ax.set_xlabel("Date")
-#     ax.set_ylabel("P/L (USD)")
-#     ax.set_title("P/L Over Time")
-
-#     plt.xticks(dates[::tick_interval])
-#     plt.tight_layout()
-#     fg.autofmt_xdate()
-#     plt.show()
-
-
-def display_graph_web():
-    labels = [date for date in record_df.index]
-    data_sgd = [val for val in record_df["TOTAL P/L"]]
-    total_deposited_sgd = [val for val in record_df["TOTAL DEPOSITED"]]
-    total_withdrawn_sgd = [val for val in record_df["TOTAL WITHDRAWN"]]
-    portfolio_sgd = [val for val in record_df["PORTFOLIO VALUE"]]
-
-    #  net deposit = total deposited - total withdrawn
-    net_deposit = []
-    for i, row in record_df.iterrows():
-        d = row['TOTAL DEPOSITED']
-        w = row['TOTAL WITHDRAWN']
-        net_deposit.append(d - w)
-
-    with open("web_src/data.js", "w") as f:
-        f.write(
-            f"const data = {{labels:{labels},data_sgd:{data_sgd},total_deposited_sgd:{total_deposited_sgd},total_withdrawn_sgd:{total_withdrawn_sgd},net_deposit:{net_deposit},portfolio_sgd:{portfolio_sgd}}}"
-        )
-
-    webbrowser.get("windows-default").open(f"{os.getcwd()}/web_src/graph.html")
 
 
 # save to database
@@ -646,36 +597,6 @@ def getProfitPerCoin(all=False):
     return profit_per_coin
 
 
-def displayProfitPerCoin(inactive=False):
-    profit_per_coin = getProfitPerCoin(all=True)
-    for v in profit_per_coin.values():
-        if v['PROFIT'] != "NA":
-            v['PROFIT'] = "{:.2f}".format(v['PROFIT'])
-        if v['%'] != 'NA':
-            v['%'] = float("{:.2f}".format(v['%']))
-    df = pd.DataFrame(profit_per_coin).transpose()
-    # sort by %
-    display_df = pd.DataFrame(df[(df['%'] != 'NA')
-                                 & (df['Active'] == True)].sort_values(
-                                     by='%', ascending=False))
-    # sort by profit for those with NA %
-    display_df = display_df.append(
-        df[(df['%'] == 'NA') & (df['PROFIT'] != 'NA') &
-           (df['Active'] == True)].sort_values(by='PROFIT', ascending=False))
-
-    display_df.drop("Active", axis=1, inplace=True)
-    #df.sort_values(by='%', inplace=True, ascending=False)
-    #df.rename_axis("COIN", inplace=True)
-    pd.options.display.max_rows = len(profit_per_coin)
-    print(display_df)
-
-    if inactive:
-        print()
-        printHeading("Inactive coins:")
-        print(df[(df['Active'] == False) & (df['%'] != 'NA')].sort_values(
-            by='PROFIT', ascending=True).drop("Active", axis=1))
-
-
 # upload transaction excel file downloaded from Crypto.com App
 def uploadCryptoTransaction():
     transaction_folder = 'app_transaction'
@@ -1013,7 +934,7 @@ def main():
                 if x == 'y':
                     inactiveCoin = True
                 print()
-                displayProfitPerCoin(inactiveCoin)
+                displayProfitPerCoin(getProfitPerCoin, inactiveCoin)
         elif choice == 'z':
             updateAveragePrice()
         # Deposit
@@ -1249,7 +1170,7 @@ def main():
             display_graph(record_df)
 
         elif choice == 'gg':
-            display_graph_web()
+            display_graph_web(record_df)
 
 
 '''

@@ -1,6 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
+import webbrowser
+import os
 
 
 def displayCoinsAvailable(COINS):
@@ -73,3 +75,55 @@ def display_graph(record_df):
     plt.tight_layout()
     fg.autofmt_xdate()
     plt.show()
+
+
+def display_graph_web(record_df):
+    labels = [date for date in record_df.index]
+    data_sgd = [val for val in record_df["TOTAL P/L"]]
+    total_deposited_sgd = [val for val in record_df["TOTAL DEPOSITED"]]
+    total_withdrawn_sgd = [val for val in record_df["TOTAL WITHDRAWN"]]
+    portfolio_sgd = [val for val in record_df["PORTFOLIO VALUE"]]
+
+    #  net deposit = total deposited - total withdrawn
+    net_deposit = []
+    for i, row in record_df.iterrows():
+        d = row['TOTAL DEPOSITED']
+        w = row['TOTAL WITHDRAWN']
+        net_deposit.append(d - w)
+
+    with open("web_src/data.js", "w") as f:
+        f.write(
+            f"const data = {{labels:{labels},data_sgd:{data_sgd},total_deposited_sgd:{total_deposited_sgd},total_withdrawn_sgd:{total_withdrawn_sgd},net_deposit:{net_deposit},portfolio_sgd:{portfolio_sgd}}}"
+        )
+
+    webbrowser.get("windows-default").open(f"{os.getcwd()}/web_src/graph.html")
+
+
+def displayProfitPerCoin(getProfitPerCoin, inactive=False):
+    profit_per_coin = getProfitPerCoin(all=True)
+    for v in profit_per_coin.values():
+        if v['PROFIT'] != "NA":
+            v['PROFIT'] = "{:.2f}".format(v['PROFIT'])
+        if v['%'] != 'NA':
+            v['%'] = float("{:.2f}".format(v['%']))
+    df = pd.DataFrame(profit_per_coin).transpose()
+    # sort by %
+    display_df = pd.DataFrame(df[(df['%'] != 'NA')
+                                 & (df['Active'] == True)].sort_values(
+                                     by='%', ascending=False))
+    # sort by profit for those with NA %
+    display_df = display_df.append(
+        df[(df['%'] == 'NA') & (df['PROFIT'] != 'NA') &
+           (df['Active'] == True)].sort_values(by='PROFIT', ascending=False))
+
+    display_df.drop("Active", axis=1, inplace=True)
+    #df.sort_values(by='%', inplace=True, ascending=False)
+    #df.rename_axis("COIN", inplace=True)
+    pd.options.display.max_rows = len(profit_per_coin)
+    print(display_df)
+
+    if inactive:
+        print()
+        printHeading("Inactive coins:")
+        print(df[(df['Active'] == False) & (df['%'] != 'NA')].sort_values(
+            by='PROFIT', ascending=True).drop("Active", axis=1))
