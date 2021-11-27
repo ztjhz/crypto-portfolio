@@ -57,14 +57,14 @@ def displayPortfolioChange(change_df):
     print(change_df)
 
 
-def display_graph(record_df):
-    dates = pd.Series(x for x in record_df.index)
-    tick_interval = int(len(record_df.index) / 26)
+def display_graph(record_index, record_total_pl):
+    dates = pd.Series(x for x in record_index)
+    tick_interval = int(len(record_index) / 26)
 
     matplotlib.style.use('ggplot')
 
     fg, ax = plt.subplots(figsize=(12, 7))
-    ax.plot(dates, record_df["TOTAL P/L"] / 1.33, label="1")
+    ax.plot(dates, record_total_pl / 1.33, label="1")
     #ax.plot(dates, record_df["PORTFOLIO VALUE"], label="2", linestyle="dashed")
 
     ax.set_xlabel("Date")
@@ -77,18 +77,22 @@ def display_graph(record_df):
     plt.show()
 
 
-def display_graph_web(record_df):
-    labels = [date for date in record_df.index]
-    data_sgd = [val for val in record_df["TOTAL P/L"]]
-    total_deposited_sgd = [val for val in record_df["TOTAL DEPOSITED"]]
-    total_withdrawn_sgd = [val for val in record_df["TOTAL WITHDRAWN"]]
-    portfolio_sgd = [val for val in record_df["PORTFOLIO VALUE"]]
+def display_graph_web(record_index, record_total_pl,
+                      record_total_deposited_withdrawn,
+                      record_portfolio_value):
+    labels = [date for date in record_index]
+    data_sgd = [val for val in record_total_pl]
+    total_deposited_sgd = []
+    total_withdrawn_sgd = []
+    portfolio_sgd = [val for val in record_portfolio_value]
 
-    #  net deposit = total deposited - total withdrawn
+    # net deposit = total deposited - total withdrawn
     net_deposit = []
-    for i, row in record_df.iterrows():
+    for _, row in record_total_deposited_withdrawn.iterrows():
         d = row['TOTAL DEPOSITED']
         w = row['TOTAL WITHDRAWN']
+        total_deposited_sgd.append(d)
+        total_withdrawn_sgd.append(w)
         net_deposit.append(d - w)
 
     with open("web_src/data.js", "w") as f:
@@ -177,3 +181,16 @@ def displayPortfolioSummary(data, total_dict, USDSGD):
 
     change_df = data.getPortfolioChange(percentagePL, currentPL)
     displayPortfolioChange(change_df)
+
+
+def displayPortfolioDF(price_df, coin_count, currency, total):
+    """ Display portfolio df (For option 0) """
+    print(price_df)
+
+    pd.options.display.max_rows = coin_count
+    pd.reset_option('precision')
+    heading = 'Total in {}: ${:.2f}'.format(currency.upper(), total)
+    print("-" * len(heading))
+    print(heading)
+    print("-" * len(heading))
+    print()

@@ -6,7 +6,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from src.env.main import USERNAME, PASSWORD, EXECUTABLE_PATH
 
-def updateCoinGecko(portfolio_df, average_cost_df):
+
+def updateCoinGecko(symbols, symbol_total_df, symbol_cost_df):
     opts = Options()
     opts.headless = False
 
@@ -48,11 +49,11 @@ def updateCoinGecko(portfolio_df, average_cost_df):
             oldQuantity, symbol = element.find_elements_by_xpath(
                 ".//div[@class='text-black']/span")[3].text.split(' ')
 
-            if symbol not in portfolio_df.index:
+            if symbol not in symbols:
                 unstarList.append(symbol)
                 continue
-            newQuantity = str(portfolio_df.loc[symbol, 'TOTAL'])
-            price = average_cost_df.loc[symbol, 'AVERAGE COST']
+            newQuantity = str(symbol_total_df[symbol])
+            price = symbol_cost_df[symbol]
             all_links[link] = [symbol, newQuantity, price]
             if oldQuantity != newQuantity:
                 quantity_list.append(symbol)
