@@ -6,6 +6,7 @@ import time
 
 
 def get_yahoo_finance_USD_SGD_rate():
+    """ Get USDSGD exchange rate from yahoo finance by scapping the website """
     url = "https://sg.finance.yahoo.com/quote/USDSGD=X/"
     try:
         session = HTMLSession()
@@ -20,6 +21,7 @@ def get_yahoo_finance_USD_SGD_rate():
 
 
 def get_mas_USD_SGD_rate():
+    """ Get USDSGD exchange rate from MAS API """
     api_link = "https://eservices.mas.gov.sg/api/action/datastore/search.json?resource_id=95932927-c8bc-4e7a-b484-68a66a24edfe&fields=usd_sgd,end_of_day&limit=1&sort=end_of_day%20desc"
     r = requests.get(api_link).json()
     while r["success"] != True:
@@ -30,19 +32,19 @@ def get_mas_USD_SGD_rate():
     return USDSGD
 
 
-def get_price(coin_id_df):
-    coinIDParam = ','.join(coin_id_df[coin_id_df['ACTIVE'] == True]['COIN ID'])
+def get_price(coin_id_param):
+    """ Gets the current price of active coins from CoinGecko API """
     currencyParam = ','.join(['usd', 'sgd'])
-    payload = {'ids': coinIDParam, 'vs_currencies': currencyParam}
+    payload = {'ids': coin_id_param, 'vs_currencies': currencyParam}
     r = requests.get('https://api.coingecko.com/api/v3/simple/price',
                      params=payload)
     return r.json()
 
 
-def get_price_all(coin_id_df):
-    coinIDParam = ','.join(coin_id_df['COIN ID'])
+def get_price_all(coin_id_param):
+    """ Gets the current price of all coins (including inactive ones) from CoinGecko API """
     currencyParam = ','.join(['usd', 'sgd'])
-    payload = {'ids': coinIDParam, 'vs_currencies': currencyParam}
+    payload = {'ids': coin_id_param, 'vs_currencies': currencyParam}
     r = requests.get('https://api.coingecko.com/api/v3/simple/price',
                      params=payload)
     return r.json()

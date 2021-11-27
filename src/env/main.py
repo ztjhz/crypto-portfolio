@@ -6,16 +6,16 @@ load_dotenv()
 USERNAME = os.getenv("COIN_GECKO_USERNAME")
 PASSWORD = os.getenv("COIN_GECKO_PASSWORD")
 EXECUTABLE_PATH = os.getenv("CHROME_WEBDRIVER_EXECUTABLE_PATH")
-DISPLAYPROFIT = False
+DISPLAY_PROFIT = False
 CASHBACK = ["3% CASHBACK", "NETFLIX REBATE", "SPOTIFY REBATE", "CRYPTO PAY"]
 
-readFileName = "crypto.db"
+READ_FILE_NAME = "crypto.db"
 DATE = datetime.date.today().strftime('%d/%m/%Y')
-record_date = datetime.date.today().strftime('%d-%m-%Y')
+RECORD_DATE = datetime.date.today().strftime('%d-%m-%Y')
 # Go back in time
 # DATE = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d/%m/%Y')
-# record_date = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d-%m-%Y')
-readFileName = "crypto.db"
-recordFolderName = f"Record/{datetime.date.today().strftime('%Y-%m')}"
-recordFileName = f'{recordFolderName}/{record_date}.db'
-averagePriceFileName = 'average_price.json'
+# RECORD_DATE = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d-%m-%Y')
+READ_FILE_NAME = "crypto.db"
+RECORD_FOLDER_NAME = f"Record/{datetime.date.today().strftime('%Y-%m')}"
+RECORD_FILE_NAME = f'{RECORD_FOLDER_NAME}/{RECORD_DATE}.db'
+AVERAGE_PRICE_FILE_NAME = 'average_price.json'

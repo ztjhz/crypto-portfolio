@@ -2,9 +2,9 @@ from sqlalchemy import create_engine
 import pandas as pd
 
 
-def initialise_engine(readFileName, recordFileName):
-    engine_1 = create_engine(f'sqlite:///{readFileName}', echo=False)
-    engine_2 = create_engine(f'sqlite:///{recordFileName}', echo=False)
+def initialise_engine(READ_FILE_NAME, RECORD_FILE_NAME):
+    engine_1 = create_engine(f'sqlite:///{READ_FILE_NAME}', echo=False)
+    engine_2 = create_engine(f'sqlite:///{RECORD_FILE_NAME}', echo=False)
     return engine_1, engine_2
 
 

@@ -4,8 +4,6 @@ import datetime
 import time
 import os
 from pprint import pprint
-
-from sqlalchemy import create_engine
 """ -------------------------------------- API calls -------------------------------------- """
 from src.api.main import *
 """ -------------------------------------- Displays -------------------------------------- """
@@ -15,541 +13,569 @@ from src.coingecko.main import *
 """ -------------------------------------- Env -------------------------------------- """
 from src.env.main import *
 """ -------------------------------------- Sqlite -------------------------------------- """
-from src.sqlite.main import *
+# from src.sqlite.main import *
+""" -------------------------------------- Dataframe -------------------------------------- """
+from src.dataframe.main import *
 
-# get exchange rate data
-print("Getting USDSGD rate...")
-USDSGD = get_yahoo_finance_USD_SGD_rate()
-print("Obtained USDSGD rate!\n")
-
-if not os.path.exists(recordFolderName):
-    os.makedirs(recordFolderName)
-    print(recordFolderName, 'created!')
-
-engine_1, engine_2 = initialise_engine(readFileName, recordFileName)
+# engine_1, engine_2 = initialise_engine(readFileName, recordFileName)
 
 # depost_df, withdrawal_df, record_df are in sgd
 # average_cost_df is in usd
-success = False
-while success == False:
-    try:
-        print(f"Reading {readFileName}...")
-
-        portfolio_df, tx_df, withdrawal_df, deposit_df, record_df, average_cost_df, coin_id_df, type_df = read_data(
-            engine_1)
-        success = True
-        print(f"{readFileName} has been read successfully!")
-    except IOError:
-        print(
-            f"\n{readFileName} is open! Please close the file and try again.")
-        input("Press enter to continue: ")
-
-COINS = list(portfolio_df.index)
-PLATFORM = list(portfolio_df.columns[:-1])
-TYPE = list(type_df["TYPE"])
-TYPE.sort()
-
-pd.options.display.max_rows = len(COINS)
-pd.options.display.max_columns = len(PLATFORM) + 1
-pd.options.display.width = 200
-
-price_dict = get_price(coin_id_df)
-
-
-# deposit
-def deposit(platform, amt: float, coin, quantity: float, remarks):
-    global deposit_df
-    global DATE
-    db = pd.DataFrame(
-        {
-            'DATE': DATE,
-            'AMOUNT': amt,
-            'COIN': coin,
-            'QUANTITY': quantity,
-            'REMARKS': remarks
-        },
-        index=[deposit_df.index[-1] + 1])
-    db.index.name = "DEPOSIT_ID"
-    deposit_df = deposit_df.append(db)
-
-    add_transactions(platform, coin, quantity, 'DEPOSIT', remarks)
-
-
-# withdraw
-def withdraw(platform, amt: float, coin, quantity: float, remarks):
-    global withdrawal_df
-    global DATE
-    db = pd.DataFrame(
-        {
-            'DATE': DATE,
-            'AMOUNT': amt,
-            'COIN': coin,
-            'QUANTITY': quantity,
-            'REMARKS': remarks
-        },
-        index=[withdrawal_df.index[-1] + 1])
-    db.index.name = "WITHDRAWAL_ID"
-    withdrawal_df = withdrawal_df.append(db)
-
-    add_transactions(platform, coin, -abs(quantity), 'WITHDRAW', remarks)
-
-
-def add_transactions(platform, coin, quantity: float, Type, remarks):
-    global tx_df
-    global DATE
-    global portfolio_df
-    db = pd.DataFrame(
-        {
-            'DATE': DATE,
-            'PLATFORM': platform,
-            'COIN': coin,
-            'QUANTITY': quantity,
-            'TYPE': Type,
-            'REMARKS': remarks,
-            "CALCULATED": False
-        },
-        index=[tx_df.index[-1] + 1])
-    db.index.name = "TX_ID"
-    tx_df = tx_df.append(db)
-
-    portfolio_df.loc[coin, [platform, 'TOTAL']] += quantity
-    print()
-    printHeading("Transaction completed:")
-    print(
-        f'Date: {DATE}\nPlatform: {platform}\nCoin: {coin}\nQuantity: {quantity}\nType: {Type}\nRemarks: {remarks}\n'
-    )
-    return f"{DATE}, {platform}, {coin}, {quantity}, {Type}, {remarks}"
-
-
-def sortPortfolioColumns(df):
-    col = df.pop('TOTAL')
-    df = df[sorted(df.columns)]
-    df.insert(len(df.columns), 'TOTAL', col)
-    return df
-
-
-def getPriceDF(currency):
-    price_df = pd.DataFrame()
-    for i in range(len(COINS)):
-        coinID = coin_id_df.loc[COINS[i], 'COIN ID']
-        if coinID in price_dict:
-            price = price_dict[coinID][currency]
-        else:
-            price = 0
-            if coinID == 'us dollar':
-                if currency == 'sgd':
-                    price = USDSGD
-                elif currency == 'usd':
-                    price = 1
-        price_df = price_df.append(
-            portfolio_df.loc[COINS[i]].map(lambda x: x * price))
-
-    price_df = sortPortfolioColumns(price_df)
-
-    return price_df
-
-
-def addTransactionFee(remarks):
-    displayCoinsAvailable(COINS)
-    coin = COINS[int(input('Enter choice: '))]
-    quantity = -abs(float(input("Enter quantity: ")))
-    Type = 'TRANSACTION FEE'
-    displayPlatformsAvailable(PLATFORM)
-    platform = PLATFORM[int(
-        input("Enter where the tx fees were deducted from: "))]
-    remarks = '(Transaction Fees) ' + remarks
-    add_transactions(platform, coin, quantity, Type, remarks)
-
-
-def getPortfolioChange(percentagePL, currentPL):
-    currentValue = percentagePL
-    days = [1, 7, 30, 60, 90, 120, 180, 270, 365]
-    dates = {}
-
-    for day in days:
-        dates[str(day) +
-              'd'] = (datetime.date.today() -
-                      datetime.timedelta(days=day)).strftime('%d/%m/%Y')
-
-    df = pd.DataFrame(index=[str(day) + 'd' for day in days],
-                      columns=['%', 'USD', 'SGD'])
-
-    for day, date in dates.items():
-        if date not in record_df.index:
-            df.loc[day, '%'] = 'NA'
-            df.loc[day, 'SGD'] = 'NA'
-            df.loc[day, 'USD'] = 'NA'
-        else:
-
-            PLValue = record_df.loc[date, 'TOTAL P/L']
-            PLchange = currentPL - PLValue
-            df.loc[day, 'SGD'] = '{:.2f}'.format(PLchange)
-            df.loc[day, 'USD'] = '{:.2f}'.format(PLchange / USDSGD)
-
-            portfolioValue = record_df.loc[date, '% P/L']
-            change = currentValue - portfolioValue
-
-            df.loc[day, '%'] = '{:.2f}'.format(change)
-
-    return df
-
-
-# calculate average purchasing price from entire transaction history
-def calculateAveragePrice(coin):
-    global tx_df
-    global average_cost_df
-    NEU_TX = [
-        'CRYPTO EARN', 'AIRDROP', 'STAKING REWARD', 'CASHBACK',
-        'TRANSACTION FEE', 'ARBITRAGE', 'YIELD FARMING', 'CASHBACK REVERSAL',
-        'CRYPTO.COM ADJUSTMENT', 'TRADING', 'REBATE'
-    ]
-    IGN_TX = ['TRANSFER']
-    NORMAL_TX = ['CONVERT', 'DEPOSIT', 'WITHDRAW']
-    total_quantity = 0
-    total_cost = 0
-    average_cost = 0
-    if coin in average_cost_df.index:
-        total_cost = average_cost_df.loc[coin, 'TOTAL COST']
-        total_quantity = average_cost_df.loc[coin, 'TOTAL QUANTITY']
-        average_cost = average_cost_df.loc[coin, 'AVERAGE COST']
-    coin_tx_df = tx_df[(tx_df['COIN'] == coin)
-                       & (tx_df['CALCULATED'] == False)]
-    hist_prices = {}
-    for i, row in coin_tx_df.iterrows():
-        type = row['TYPE']
-        quantity = row['QUANTITY']
-        date = row['DATE']
-        if date == DATE:
-            continue
-        if coin not in hist_prices:
-            hist_prices[coin] = getHistoricalPrice(
-                coin_id_df.loc[coin, 'COIN ID'], date)
-        price = hist_prices[coin]
-        print(coin, date, type, quantity, price, end="")
-
-        if type in IGN_TX:
-            print(" - ignored")
-        elif type in NEU_TX:
-            print(" - neutral")
-            total_quantity += quantity
-        elif type in NORMAL_TX:
-            # Deposit / Withrawal / Conversion
-            print(" - added")
-
-            # When you sell, the price you sell at does not matter for the determination of your average cost.
-            # You reduce the number of shares by the number of shares in the transaction
-            # You reduce the total cost by the (average price)*(number of shares in the transaction).
-            # This means that selling does not change the average price, just the number of shares.
-            if quantity < 0:  # selling a transaction
-                average_cost = total_cost / total_quantity
-                total_cost += quantity * average_cost  # = subtraction
-
-            # When you buy more shares,
-            # The total cost goes up by the total you paid in the transaction (=(# shares in the transaction) * (transaction price))
-            # The number of shares increases by the amount in the transaction.
-            # You get the average cost by dividing the total cost by the number of shares.
-            else:
-                total_cost += quantity * price
-            total_quantity += quantity
-
-            # Your profit on selling is based on comparing the selling price to the average cost.
-            # This would be the “cost of goods sold” in inventory accounting.
-            # (If you want more details on this subject, you could look for primers on inventory accounting on the internet.)
-        else:
-            print(f"{type} not in transaction_type.txt")
-            exit()
-        tx_df.loc[i, "CALCULATED"] = True
-
-    if total_quantity != 0 and total_cost != 0:
-        average_cost = total_cost / total_quantity
-
-    return total_cost, total_quantity, average_cost
-
-
-# Update average_price.json with average price of all coins and all transaction history
-def updateAveragePrice():
-    global average_cost_df
-    for coin in coin_id_df.index:
-        total_cost, total_quantity, average_cost = calculateAveragePrice(coin)
-        if coin not in average_cost_df.index:
-            average_cost_df = average_cost_df.append(
-                pd.Series(
-                    {
-                        'TOTAL COST': total_cost,
-                        'TOTAL QUANTITY': total_quantity,
-                        'AVERAGE COST': average_cost,
-                        'ACTIVE': True
-                    },
-                    name=coin))
-            average_cost_df.sort_values(by=['ACTIVE', 'SYMBOL'],
-                                        ascending=[False, True],
-                                        inplace=True)
-        else:
-            average_cost_df.loc[coin, 'TOTAL COST'] = total_cost
-            average_cost_df.loc[coin, 'TOTAL QUANTITY'] = total_quantity
-            average_cost_df.loc[coin, 'AVERAGE COST'] = average_cost
-
-
-def getProfitPerCoin(all=False):
-    profit_per_coin = {}
-    price_dict_all = get_price_all(coin_id_df)
-
-    coin_list = []
-    if all == True:
-        coin_list = list(average_cost_df.index)
-    else:
-        coin_list = list(
-            average_cost_df[average_cost_df['ACTIVE'] == True].index)
-
-    for coin in coin_list:
-        total_quantity = average_cost_df.loc[coin, 'TOTAL QUANTITY']
-        if total_quantity == 0:
-            profit_per_coin[coin] = {
-                "PROFIT": "NA",
-                "%": "NA",
-                "Active": coin_id_df.loc[coin, 'ACTIVE']
-            }
-            continue
-        #cost = total_quantity * average_price_dict[coinID]['Average Price']
-        cost = average_cost_df.loc[coin, 'AVERAGE COST'] * total_quantity
-        current_value = total_quantity * price_dict_all[coin_id_df.loc[
-            coin, 'COIN ID']]['usd']
-        profit = current_value - cost
-        if cost <= 0:
-            percentage_profit = "NA"
-        else:
-            percentage_profit = profit / cost * 100
-        profit_per_coin[coin] = {
-            "PROFIT": profit,
-            "%": percentage_profit,
-            "Active": coin_id_df.loc[coin, 'ACTIVE']
-        }
-
-    return profit_per_coin
-
-
-# upload transaction excel file downloaded from Crypto.com App
-def uploadCryptoTransaction():
-    transaction_folder = 'app_transaction'
-    files_in_dir = os.listdir(transaction_folder)
-    required_file_name_prefix = 'crypto_transactions_record_{}'.format(
-        datetime.date.today().strftime("%Y%m%d"))
-    file_path = ""
-    ignore_list = [
-        'crypto_withdrawal', 'crypto_deposit', 'crypto_earn_program_created',
-        'crypto_earn_program_withdrawn'
-    ]
-    ignored_transactions = []
-    processed_transactions = []
-
-    for i in files_in_dir:
-        if required_file_name_prefix in i:
-            file_path = os.path.join(transaction_folder, i)
-    if file_path == "":
-        print(f'\nTransaction file for {DATE} does not exist!')
-        time.sleep(1)
-        return
-    t_df = pd.read_csv(file_path)
-    t_df.sort_index(ascending=False, inplace=True)
-
-    border_length = 50
-
-    for index, row in t_df.iterrows():
-        transaction_type = row['Transaction Kind']
-        coin = row['Currency']
-        quantity = abs(float(row['Amount']))
-        raw_quantity = float(row['Amount'])
-        processed = True
-        remarks = ""
-        print("-" * border_length)
-        print(f"{transaction_type}: {raw_quantity} {coin}")
-
-        # Crypto Earn
-        if transaction_type == 'crypto_earn_interest_paid':
-            crypto_earn_types = ["FLEXIBLE", "1 MONTH", '3 MONTH']
-            print("CRYPTO EARN: ", quantity, coin)
-            for i in range(len(crypto_earn_types)):
-                print(f"{i}. {crypto_earn_types[i]}")
-            remarks = crypto_earn_types[int(input("Select the type: "))]
-            add_transactions("APP", coin, quantity, 'CRYPTO EARN', remarks)
-
-        # MCO Card Staking Rewards
-        elif transaction_type == 'mco_stake_reward':
-            remarks = "CRYPTO.COM APP STAKING REWARD"
-            add_transactions('APP', coin, quantity, "STAKING REWARD", remarks)
-
-        # Card Cashback + Rebate
-        elif transaction_type == 'referral_card_cashback' or transaction_type == 'reimbursement':
-            remarks = row['Transaction Description']
-            add_transactions("APP", coin, quantity, 'CASHBACK', remarks)
-
-        # Cash Back Reversal
-        elif transaction_type == 'reimbursement_reverted' or transaction_type == 'card_cashback_reverted':
-            remarks = row['Transaction Description']
-            add_transactions("APP", coin, -quantity, 'CASHBACK REVERSAL',
-                             remarks)
-
-        # Crypto.com Adjustment (Credit)
-        elif transaction_type == 'admin_wallet_credited':
-            remarks = row['Transaction Description']
-            add_transactions("APP", coin, quantity, 'CRYPTO.COM ADJUSTMENT',
-                             remarks)
-
-        # Supercharger Deposit / Withdrawal
-        elif transaction_type == 'supercharger_deposit':
-            remarks = f"Transfer {quantity} {coin} from APP to SUPERCHARGER"
-            add_transactions("APP", coin, -quantity, "TRANSFER", remarks)
-            add_transactions("SUPERCHARGER", coin, quantity, "TRANSFER",
-                             remarks)
-        elif transaction_type == 'supercharger_withdrawal':
-            remarks = f"Transfer {quantity} {coin} from SUPERCHARGER to APP"
-            add_transactions("APP", coin, quantity, "TRANSFER", remarks)
-            add_transactions("SUPERCHARGER", coin, -quantity, "TRANSFER",
-                             remarks)
-
-        # Transfer from App to Exchange or Exchange to App
-        elif transaction_type == 'exchange_to_crypto_transfer':
-            remarks = f"Transfer {quantity} {coin} from EXCHANGE to APP"
-            add_transactions("APP", coin, quantity, "TRANSFER", remarks)
-            add_transactions("EXCHANGE", coin, -quantity, "TRANSFER", remarks)
-        elif transaction_type == 'crypto_to_exchange_transfer':
-            remarks = f"Transfer {quantity} {coin} from APP to EXCHANGE"
-            add_transactions("APP", coin, -quantity, "TRANSFER", remarks)
-            add_transactions("EXCHANGE", coin, quantity, "TRANSFER", remarks)
-
-        # Convert dust crypto to CRO on App
-        elif transaction_type == 'dust_conversion_credited':
-            remarks = "CONVERT DUST CRYPTO TO CRO ON APP"
-            add_transactions("APP", coin, quantity, "CONVERT", remarks)
-        elif transaction_type == 'dust_conversion_debited':
-            remarks = f"CONVERT DUST {coin} TO CRO ON APP"
-            add_transactions("APP", coin, -quantity, "CONVERT", remarks)
-
-        # Convert crypto in App
-        elif transaction_type == 'crypto_exchange':
-            fromCoin = coin
-            fromQuantity = -quantity
-            toCoin = row['To Currency']
-            toQuantity = row['To Amount']
-            remarks = f"Convert from {abs(fromQuantity)} {fromCoin} to {toQuantity} {toCoin} on APP"
-            add_transactions("APP", fromCoin, fromQuantity, "CONVERT", remarks)
-            add_transactions("APP", toCoin, toQuantity, "CONVERT", remarks)
-
-        # Supercharger App reward
-        elif transaction_type == 'supercharger_reward_to_app_credited':
-            remarks = "CRYPTO.COM SUPERCHARGER APP REWARD"
-            if coin not in coin_id_df.index:
-                addCoin(coin)
-            add_transactions("APP", coin, quantity, "STAKING REWARD", remarks)
-
-        # Buy Crypto via Xfers
-        elif transaction_type == 'xfers_purchase':
-            amount = quantity
-            coin = row['To Currency']
-            coin_quantity = abs(float(row['To Amount']))
-            remarks = "XFERS"
-            deposit("APP", amount, coin, coin_quantity, remarks)
-            print(deposit_df.tail())
-
-        # Buy Crypto using Debit (No Cross Border Fees)
-        elif transaction_type == 'crypto_purchase':
-            remarks = "DEBIT CARD"
-            amount = abs(float(row['Native Amount']))
-            deposit("APP", amount, coin, quantity, remarks)
-
-        # Sell Crypto to top up MCO card
-        elif transaction_type == 'card_top_up':
-            remarks = "CARD"
-            amount = abs(float(row['Native Amount']))
-            withdraw("APP", amount, coin, quantity, remarks)
-
-        # USD bank transfer to USDC
-        elif transaction_type == 'usdc_bank_deposit':
-            amount = abs(float(row['Native Amount']))
-            remarks = f"Deposit ${amount} USD (${amount * USDSGD} SGD) via USD bank transfer"
-            deposit("APP", amount * USDSGD, coin, quantity, remarks)
-
-        # Ignore transactions
-        elif transaction_type in ignore_list:
-            print("Transaction ignored")
-            ignored_transactions.append(
-                f"{transaction_type}: {quantity} {coin}")
-            processed = False
-
-        # transaction type not in the excel file
-        else:
-            processed = False
-            print(f"{transaction_type} not in program!")
-            exit()
-
-        if processed:
-            processed_transactions.append(
-                f"({transaction_type}: {raw_quantity} {coin}) {remarks}")
-        print("-" * border_length)
-        print()
-    if len(processed_transactions) > 0:
-        print("\nProcessed Transactions:")
-        for tx in processed_transactions:
-            print(tx)
-    if len(ignored_transactions) > 0:
-        print("\nIgnored Transactions:")
-        for tx in ignored_transactions:
-            print(tx)
-
-
-def addCoin(coin=None):
-    global portfolio_df, coin_id_df, average_cost_df
-
-    if not coin:
-        coin = input('Enter symbol of the coin: ').upper()
-    # add coin to portfolio dataframe
-    temp_dict = {}
-    for i in PLATFORM:
-        temp_dict[i] = [0]
-    temp_dict['TOTAL'] = [0]
-    df = pd.DataFrame(temp_dict, index=[coin])
-    df.index.name = 'SYMBOL'
-    portfolio_df = portfolio_df.append(df)
-    portfolio_df.sort_index(inplace=True)
-
-    coinID = input(f'Enter coin id of {coin} from CoinGecko: ')
-    if coin not in coin_id_df.index:
-        coin_id_df = coin_id_df.append(
-            pd.Series({
-                "COIN ID": coinID,
-                'ACTIVE': True
-            }, name=coin))
-        coin_id_df.sort_values(by=['ACTIVE', "SYMBOL"],
-                               ascending=[False, True],
-                               inplace=True)
-        average_cost_df = average_cost_df.append(
-            pd.Series(
-                {
-                    'TOTAL COST': 0,
-                    'TOTAL QUANTITY': 0,
-                    'AVERAGE COST': 0,
-                    'ACTIVE': True
-                },
-                name=coin))
-        average_cost_df.sort_values(by=['ACTIVE', 'SYMBOL'],
-                                    ascending=[False, True],
-                                    inplace=True)
-    else:
-        coin_id_df.loc[coin, "ACTIVE"] = True
-        average_cost_df.loc[coin, "ACTIVE"] = True
-    print(f'\n{coin} has been added.\n')
-
+# success = False
+# while success == False:
+#     try:
+#         print(f"Reading {readFileName}...")
+
+#         portfolio_df, tx_df, withdrawal_df, deposit_df, record_df, average_cost_df, coin_id_df, type_df = read_data(
+#             engine_1)
+#         success = True
+#         print(f"{readFileName} has been read successfully!")
+#     except IOError:
+#         print(
+#             f"\n{readFileName} is open! Please close the file and try again.")
+#         input("Press enter to continue: ")
+
+# COINS = list(portfolio_df.index)
+# PLATFORM = list(portfolio_df.columns[:-1])
+# TYPE = list(type_df["TYPE"])
+# TYPE.sort()
+
+# pd.options.display.max_rows = len(COINS)
+# pd.options.display.max_columns = len(PLATFORM) + 1
+# pd.options.display.width = 200
+
+# # deposit
+# def deposit(platform, amt: float, coin, quantity: float, remarks):
+#     global deposit_df
+#     global DATE
+#     db = pd.DataFrame(
+#         {
+#             'DATE': DATE,
+#             'AMOUNT': amt,
+#             'COIN': coin,
+#             'QUANTITY': quantity,
+#             'REMARKS': remarks
+#         },
+#         index=[deposit_df.index[-1] + 1])
+#     db.index.name = "DEPOSIT_ID"
+#     deposit_df = deposit_df.append(db)
+
+#     add_transactions(platform, coin, quantity, 'DEPOSIT', remarks)
+
+# # withdraw
+# def withdraw(platform, amt: float, coin, quantity: float, remarks):
+#     global withdrawal_df
+#     global DATE
+#     db = pd.DataFrame(
+#         {
+#             'DATE': DATE,
+#             'AMOUNT': amt,
+#             'COIN': coin,
+#             'QUANTITY': quantity,
+#             'REMARKS': remarks
+#         },
+#         index=[withdrawal_df.index[-1] + 1])
+#     db.index.name = "WITHDRAWAL_ID"
+#     withdrawal_df = withdrawal_df.append(db)
+
+#     add_transactions(platform, coin, -abs(quantity), 'WITHDRAW', remarks,
+#                      tx_df, portfolio_df, DATE, printHeading)
+
+# def add_transactions(platform, coin, quantity: float, Type, remarks):
+#     global tx_df
+#     global DATE
+#     global portfolio_df
+#     db = pd.DataFrame(
+#         {
+#             'DATE': DATE,
+#             'PLATFORM': platform,
+#             'COIN': coin,
+#             'QUANTITY': quantity,
+#             'TYPE': Type,
+#             'REMARKS': remarks,
+#             "CALCULATED": False
+#         },
+#         index=[tx_df.index[-1] + 1])
+#     db.index.name = "TX_ID"
+#     tx_df = tx_df.append(db)
+
+#     portfolio_df.loc[coin, [platform, 'TOTAL']] += quantity
+#     print()
+#     printHeading("Transaction completed:")
+#     print(
+#         f'Date: {DATE}\nPlatform: {platform}\nCoin: {coin}\nQuantity: {quantity}\nType: {Type}\nRemarks: {remarks}\n'
+#     )
+#     return f"{DATE}, {platform}, {coin}, {quantity}, {Type}, {remarks}"
+
+# def sortPortfolioColumns(df):
+#     col = df.pop('TOTAL')
+#     df = df[sorted(df.columns)]
+#     df.insert(len(df.columns), 'TOTAL', col)
+#     return df
+
+# def getPriceDF(currency):
+#     price_df = pd.DataFrame()
+#     for i in range(len(COINS)):
+#         coinID = coin_id_df.loc[COINS[i], 'COIN ID']
+#         if coinID in price_dict:
+#             price = price_dict[coinID][currency]
+#         else:
+#             price = 0
+#             if coinID == 'us dollar':
+#                 if currency == 'sgd':
+#                     price = USDSGD
+#                 elif currency == 'usd':
+#                     price = 1
+#         price_df = price_df.append(
+#             portfolio_df.loc[COINS[i]].map(lambda x: x * price))
+
+#     price_df = sortPortfolioColumns(price_df)
+
+#     return price_df
+
+# def addTransactionFee(remarks):
+#     displayCoinsAvailable(COINS)
+#     coin = COINS[int(input('Enter choice: '))]
+#     quantity = -abs(float(input("Enter quantity: ")))
+#     Type = 'TRANSACTION FEE'
+#     displayPlatformsAvailable(PLATFORM)
+#     platform = PLATFORM[int(
+#         input("Enter where the tx fees were deducted from: "))]
+#     remarks = '(Transaction Fees) ' + remarks
+#     add_transactions(platform, coin, quantity, Type, remarks)
+
+# def getPortfolioChange(percentagePL, currentPL):
+#     currentValue = percentagePL
+#     days = [1, 7, 30, 60, 90, 120, 180, 270, 365]
+#     dates = {}
+
+#     for day in days:
+#         dates[str(day) +
+#               'd'] = (datetime.date.today() -
+#                       datetime.timedelta(days=day)).strftime('%d/%m/%Y')
+
+#     df = pd.DataFrame(index=[str(day) + 'd' for day in days],
+#                       columns=['%', 'USD', 'SGD'])
+
+#     for day, date in dates.items():
+#         if date not in record_df.index:
+#             df.loc[day, '%'] = 'NA'
+#             df.loc[day, 'SGD'] = 'NA'
+#             df.loc[day, 'USD'] = 'NA'
+#         else:
+
+#             PLValue = record_df.loc[date, 'TOTAL P/L']
+#             PLchange = currentPL - PLValue
+#             df.loc[day, 'SGD'] = '{:.2f}'.format(PLchange)
+#             df.loc[day, 'USD'] = '{:.2f}'.format(PLchange / USDSGD)
+
+#             portfolioValue = record_df.loc[date, '% P/L']
+#             change = currentValue - portfolioValue
+
+#             df.loc[day, '%'] = '{:.2f}'.format(change)
+
+#     return df
+
+# # calculate average purchasing price from entire transaction history
+# def calculateAveragePrice(coin):
+#     global tx_df
+#     global average_cost_df
+#     NEU_TX = [
+#         'CRYPTO EARN', 'AIRDROP', 'STAKING REWARD', 'CASHBACK',
+#         'TRANSACTION FEE', 'ARBITRAGE', 'YIELD FARMING', 'CASHBACK REVERSAL',
+#         'CRYPTO.COM ADJUSTMENT', 'TRADING', 'REBATE'
+#     ]
+#     IGN_TX = ['TRANSFER']
+#     NORMAL_TX = ['CONVERT', 'DEPOSIT', 'WITHDRAW']
+#     total_quantity = 0
+#     total_cost = 0
+#     average_cost = 0
+#     if coin in average_cost_df.index:
+#         total_cost = average_cost_df.loc[coin, 'TOTAL COST']
+#         total_quantity = average_cost_df.loc[coin, 'TOTAL QUANTITY']
+#         average_cost = average_cost_df.loc[coin, 'AVERAGE COST']
+#     coin_tx_df = tx_df[(tx_df['COIN'] == coin)
+#                        & (tx_df['CALCULATED'] == False)]
+#     hist_prices = {}
+#     for i, row in coin_tx_df.iterrows():
+#         type = row['TYPE']
+#         quantity = row['QUANTITY']
+#         date = row['DATE']
+#         if date == DATE:
+#             continue
+#         if coin not in hist_prices:
+#             hist_prices[coin] = getHistoricalPrice(
+#                 coin_id_df.loc[coin, 'COIN ID'], date)
+#         price = hist_prices[coin]
+#         print(coin, date, type, quantity, price, end="")
+
+#         if type in IGN_TX:
+#             print(" - ignored")
+#         elif type in NEU_TX:
+#             print(" - neutral")
+#             total_quantity += quantity
+#         elif type in NORMAL_TX:
+#             # Deposit / Withrawal / Conversion
+#             print(" - added")
+
+#             # When you sell, the price you sell at does not matter for the determination of your average cost.
+#             # You reduce the number of shares by the number of shares in the transaction
+#             # You reduce the total cost by the (average price)*(number of shares in the transaction).
+#             # This means that selling does not change the average price, just the number of shares.
+#             if quantity < 0:  # selling a transaction
+#                 average_cost = total_cost / total_quantity
+#                 total_cost += quantity * average_cost  # = subtraction
+
+#             # When you buy more shares,
+#             # The total cost goes up by the total you paid in the transaction (=(# shares in the transaction) * (transaction price))
+#             # The number of shares increases by the amount in the transaction.
+#             # You get the average cost by dividing the total cost by the number of shares.
+#             else:
+#                 total_cost += quantity * price
+#             total_quantity += quantity
+
+#             # Your profit on selling is based on comparing the selling price to the average cost.
+#             # This would be the “cost of goods sold” in inventory accounting.
+#             # (If you want more details on this subject, you could look for primers on inventory accounting on the internet.)
+#         else:
+#             print(f"{type} not in transaction_type.txt")
+#             exit()
+#         tx_df.loc[i, "CALCULATED"] = True
+
+#     if total_quantity != 0 and total_cost != 0:
+#         average_cost = total_cost / total_quantity
+
+#     return total_cost, total_quantity, average_cost
+
+# # Update average_price.json with average price of all coins and all transaction history
+# def updateAveragePrice():
+#     global average_cost_df
+#     for coin in coin_id_df.index:
+#         total_cost, total_quantity, average_cost = calculateAveragePrice(coin)
+#         if coin not in average_cost_df.index:
+#             average_cost_df = average_cost_df.append(
+#                 pd.Series(
+#                     {
+#                         'TOTAL COST': total_cost,
+#                         'TOTAL QUANTITY': total_quantity,
+#                         'AVERAGE COST': average_cost,
+#                         'ACTIVE': True
+#                     },
+#                     name=coin))
+#             average_cost_df.sort_values(by=['ACTIVE', 'SYMBOL'],
+#                                         ascending=[False, True],
+#                                         inplace=True)
+#         else:
+#             average_cost_df.loc[coin, 'TOTAL COST'] = total_cost
+#             average_cost_df.loc[coin, 'TOTAL QUANTITY'] = total_quantity
+#             average_cost_df.loc[coin, 'AVERAGE COST'] = average_cost
+
+# def getProfitPerCoin(all=False):
+#     profit_per_coin = {}
+#     price_dict_all = get_price_all(coin_id_df)
+
+#     coin_list = []
+#     if all == True:
+#         coin_list = list(average_cost_df.index)
+#     else:
+#         coin_list = list(
+#             average_cost_df[average_cost_df['ACTIVE'] == True].index)
+
+#     for coin in coin_list:
+#         total_quantity = average_cost_df.loc[coin, 'TOTAL QUANTITY']
+#         if total_quantity == 0:
+#             profit_per_coin[coin] = {
+#                 "PROFIT": "NA",
+#                 "%": "NA",
+#                 "Active": coin_id_df.loc[coin, 'ACTIVE']
+#             }
+#             continue
+#         #cost = total_quantity * average_price_dict[coinID]['Average Price']
+#         cost = average_cost_df.loc[coin, 'AVERAGE COST'] * total_quantity
+#         current_value = total_quantity * price_dict_all[coin_id_df.loc[
+#             coin, 'COIN ID']]['usd']
+#         profit = current_value - cost
+#         if cost <= 0:
+#             percentage_profit = "NA"
+#         else:
+#             percentage_profit = profit / cost * 100
+#         profit_per_coin[coin] = {
+#             "PROFIT": profit,
+#             "%": percentage_profit,
+#             "Active": coin_id_df.loc[coin, 'ACTIVE']
+#         }
+
+#     return profit_per_coin
+
+# # upload transaction excel file downloaded from Crypto.com App
+# def uploadCryptoTransaction():
+#     transaction_folder = 'app_transaction'
+#     files_in_dir = os.listdir(transaction_folder)
+#     required_file_name_prefix = 'crypto_transactions_record_{}'.format(
+#         datetime.date.today().strftime("%Y%m%d"))
+#     file_path = ""
+#     ignore_list = [
+#         'crypto_withdrawal', 'crypto_deposit', 'crypto_earn_program_created',
+#         'crypto_earn_program_withdrawn'
+#     ]
+#     ignored_transactions = []
+#     processed_transactions = []
+
+#     for i in files_in_dir:
+#         if required_file_name_prefix in i:
+#             file_path = os.path.join(transaction_folder, i)
+#     if file_path == "":
+#         print(f'\nTransaction file for {DATE} does not exist!')
+#         time.sleep(1)
+#         return
+#     t_df = pd.read_csv(file_path)
+#     t_df.sort_index(ascending=False, inplace=True)
+
+#     border_length = 50
+
+#     for index, row in t_df.iterrows():
+#         transaction_type = row['Transaction Kind']
+#         coin = row['Currency']
+#         quantity = abs(float(row['Amount']))
+#         raw_quantity = float(row['Amount'])
+#         processed = True
+#         remarks = ""
+#         print("-" * border_length)
+#         print(f"{transaction_type}: {raw_quantity} {coin}")
+
+#         # Crypto Earn
+#         if transaction_type == 'crypto_earn_interest_paid':
+#             crypto_earn_types = ["FLEXIBLE", "1 MONTH", '3 MONTH']
+#             print("CRYPTO EARN: ", quantity, coin)
+#             for i in range(len(crypto_earn_types)):
+#                 print(f"{i}. {crypto_earn_types[i]}")
+#             remarks = crypto_earn_types[int(input("Select the type: "))]
+#             add_transactions("APP", coin, quantity, 'CRYPTO EARN', remarks)
+
+#         # MCO Card Staking Rewards
+#         elif transaction_type == 'mco_stake_reward':
+#             remarks = "CRYPTO.COM APP STAKING REWARD"
+#             add_transactions('APP', coin, quantity, "STAKING REWARD", remarks)
+
+#         # Card Cashback + Rebate
+#         elif transaction_type == 'referral_card_cashback' or transaction_type == 'reimbursement':
+#             remarks = row['Transaction Description']
+#             add_transactions("APP", coin, quantity, 'CASHBACK', remarks)
+
+#         # Cash Back Reversal
+#         elif transaction_type == 'reimbursement_reverted' or transaction_type == 'card_cashback_reverted':
+#             remarks = row['Transaction Description']
+#             add_transactions("APP", coin, -quantity, 'CASHBACK REVERSAL',
+#                              remarks)
+
+#         # Crypto.com Adjustment (Credit)
+#         elif transaction_type == 'admin_wallet_credited':
+#             remarks = row['Transaction Description']
+#             add_transactions("APP", coin, quantity, 'CRYPTO.COM ADJUSTMENT',
+#                              remarks)
+
+#         # Supercharger Deposit / Withdrawal
+#         elif transaction_type == 'supercharger_deposit':
+#             remarks = f"Transfer {quantity} {coin} from APP to SUPERCHARGER"
+#             add_transactions("APP", coin, -quantity, "TRANSFER", remarks)
+#             add_transactions("SUPERCHARGER", coin, quantity, "TRANSFER",
+#                              remarks)
+#         elif transaction_type == 'supercharger_withdrawal':
+#             remarks = f"Transfer {quantity} {coin} from SUPERCHARGER to APP"
+#             add_transactions("APP", coin, quantity, "TRANSFER", remarks)
+#             add_transactions("SUPERCHARGER", coin, -quantity, "TRANSFER",
+#                              remarks)
+
+#         # Transfer from App to Exchange or Exchange to App
+#         elif transaction_type == 'exchange_to_crypto_transfer':
+#             remarks = f"Transfer {quantity} {coin} from EXCHANGE to APP"
+#             add_transactions("APP", coin, quantity, "TRANSFER", remarks)
+#             add_transactions("EXCHANGE", coin, -quantity, "TRANSFER", remarks)
+#         elif transaction_type == 'crypto_to_exchange_transfer':
+#             remarks = f"Transfer {quantity} {coin} from APP to EXCHANGE"
+#             add_transactions("APP", coin, -quantity, "TRANSFER", remarks)
+#             add_transactions("EXCHANGE", coin, quantity, "TRANSFER", remarks)
+
+#         # Convert dust crypto to CRO on App
+#         elif transaction_type == 'dust_conversion_credited':
+#             remarks = "CONVERT DUST CRYPTO TO CRO ON APP"
+#             add_transactions("APP", coin, quantity, "CONVERT", remarks)
+#         elif transaction_type == 'dust_conversion_debited':
+#             remarks = f"CONVERT DUST {coin} TO CRO ON APP"
+#             add_transactions("APP", coin, -quantity, "CONVERT", remarks)
+
+#         # Convert crypto in App
+#         elif transaction_type == 'crypto_exchange':
+#             fromCoin = coin
+#             fromQuantity = -quantity
+#             toCoin = row['To Currency']
+#             toQuantity = row['To Amount']
+#             remarks = f"Convert from {abs(fromQuantity)} {fromCoin} to {toQuantity} {toCoin} on APP"
+#             add_transactions("APP", fromCoin, fromQuantity, "CONVERT", remarks)
+#             add_transactions("APP", toCoin, toQuantity, "CONVERT", remarks)
+
+#         # Supercharger App reward
+#         elif transaction_type == 'supercharger_reward_to_app_credited':
+#             remarks = "CRYPTO.COM SUPERCHARGER APP REWARD"
+#             if coin not in coin_id_df.index:
+#                 addCoin(coin)
+#             add_transactions("APP", coin, quantity, "STAKING REWARD", remarks)
+
+#         # Buy Crypto via Xfers
+#         elif transaction_type == 'xfers_purchase':
+#             amount = quantity
+#             coin = row['To Currency']
+#             coin_quantity = abs(float(row['To Amount']))
+#             remarks = "XFERS"
+#             deposit("APP", amount, coin, coin_quantity, remarks)
+#             print(deposit_df.tail())
+
+#         # Buy Crypto using Debit (No Cross Border Fees)
+#         elif transaction_type == 'crypto_purchase':
+#             remarks = "DEBIT CARD"
+#             amount = abs(float(row['Native Amount']))
+#             deposit("APP", amount, coin, quantity, remarks)
+
+#         # Sell Crypto to top up MCO card
+#         elif transaction_type == 'card_top_up':
+#             remarks = "CARD"
+#             amount = abs(float(row['Native Amount']))
+#             withdraw("APP", amount, coin, quantity, remarks)
+
+#         # USD bank transfer to USDC
+#         elif transaction_type == 'usdc_bank_deposit':
+#             amount = abs(float(row['Native Amount']))
+#             remarks = f"Deposit ${amount} USD (${amount * USDSGD} SGD) via USD bank transfer"
+#             deposit("APP", amount * USDSGD, coin, quantity, remarks)
+
+#         # Ignore transactions
+#         elif transaction_type in ignore_list:
+#             print("Transaction ignored")
+#             ignored_transactions.append(
+#                 f"{transaction_type}: {quantity} {coin}")
+#             processed = False
+
+#         # transaction type not in the excel file
+#         else:
+#             processed = False
+#             print(f"{transaction_type} not in program!")
+#             exit()
+
+#         if processed:
+#             processed_transactions.append(
+#                 f"({transaction_type}: {raw_quantity} {coin}) {remarks}")
+#         print("-" * border_length)
+#         print()
+#     if len(processed_transactions) > 0:
+#         print("\nProcessed Transactions:")
+#         for tx in processed_transactions:
+#             print(tx)
+#     if len(ignored_transactions) > 0:
+#         print("\nIgnored Transactions:")
+#         for tx in ignored_transactions:
+#             print(tx)
+
+# def addCoin(coin=None):
+#     global portfolio_df, coin_id_df, average_cost_df
+
+#     if not coin:
+#         coin = input('Enter symbol of the coin: ').upper()
+#     # add coin to portfolio dataframe
+#     temp_dict = {}
+#     for i in PLATFORM:
+#         temp_dict[i] = [0]
+#     temp_dict['TOTAL'] = [0]
+#     df = pd.DataFrame(temp_dict, index=[coin])
+#     df.index.name = 'SYMBOL'
+#     portfolio_df = portfolio_df.append(df)
+#     portfolio_df.sort_index(inplace=True)
+
+#     coinID = input(f'Enter coin id of {coin} from CoinGecko: ')
+#     if coin not in coin_id_df.index:
+#         coin_id_df = coin_id_df.append(
+#             pd.Series({
+#                 "COIN ID": coinID,
+#                 'ACTIVE': True
+#             }, name=coin))
+#         coin_id_df.sort_values(by=['ACTIVE', "SYMBOL"],
+#                                ascending=[False, True],
+#                                inplace=True)
+#         average_cost_df = average_cost_df.append(
+#             pd.Series(
+#                 {
+#                     'TOTAL COST': 0,
+#                     'TOTAL QUANTITY': 0,
+#                     'AVERAGE COST': 0,
+#                     'ACTIVE': True
+#                 },
+#                 name=coin))
+#         average_cost_df.sort_values(by=['ACTIVE', 'SYMBOL'],
+#                                     ascending=[False, True],
+#                                     inplace=True)
+#     else:
+#         coin_id_df.loc[coin, "ACTIVE"] = True
+#         average_cost_df.loc[coin, "ACTIVE"] = True
+#     print(f'\n{coin} has been added.\n')
+
+
+def api_call(coin_id_param):
+    print("Getting USDSGD rate...")
+    USDSGD = get_yahoo_finance_USD_SGD_rate()
+    print("Obtained USDSGD rate!\n")
+
+    price_dict = get_price(coin_id_param)
+    price_dict_all = get_price_all(coin_id_param)
+
+    return USDSGD, price_dict, price_dict_all
+
+
+def addProfitPerCoinPriceDF(data, price_dict_all, price_df, per_coin=False):
+    """ Add the profit per coin to the last column of price_df """
+    if input("Display Profit Per Coin? [y/n] ") == 'y':
+        per_coin = True
+
+    if per_coin:
+        profit_per_coin = data.getProfitPerCoin(price_dict_all)
+        price_df.insert(len(price_df.columns), 'PROFIT', [
+            "{:.2f}".format(x['PROFIT']) if x['PROFIT'] != 'NA' else "NA"
+            for x in profit_per_coin.values()
+        ] + [
+            "{:.2f}".format(
+                sum([
+                    x['PROFIT'] if x['PROFIT'] != 'NA' else 0
+                    for x in profit_per_coin.values()
+                ]))
+        ])
+        pd.options.display.max_columns += 1
+
+    return per_coin
+
+
+def addTotalPerPlatformPriceDF(price_df, total_dict, currency, total, data):
+    """ Add the total amount per platform to the last row of price_df """
+    total_dict[currency] = total
+    pd.set_option('precision', 2)
+    totalPerPlatform = {}
+    for platform in price_df.columns:
+        totalPerPlatform[platform] = price_df[platform].sum()
+    temp_df = pd.DataFrame(totalPerPlatform, index=['TOTAL'])
+    price_df = price_df.append(temp_df)
+    pd.options.display.max_rows = data.getCoinCount() + 1
+
+    portfolio_total = price_df.loc['TOTAL', 'TOTAL']
+    price_df.insert(len(price_df.columns), '%', [
+        "{:.2f}".format((x / portfolio_total) * 100)
+        for x in price_df['TOTAL'].values
+    ])
+    pd.options.display.max_columns += 1
 
 def main():
-    global portfolio_df
-    global record_df
-    global price_dict
-    global coin_id_df
-    global average_cost_df
-    global type_df
-    global COINS
-    global PLATFORM
-    global TYPE
+    USDSGD, price_dict, price_dict_all = api_call(data.getCoinIDParam())
+    data = Data(READ_FILE_NAME, RECORD_FILE_NAME, DATE, USDSGD, printHeading)
+
+    if not os.path.exists(RECORD_FOLDER_NAME):
+        os.makedirs(RECORD_FOLDER_NAME)
+        print(RECORD_FOLDER_NAME, 'created!')
 
     Exit = False
     while Exit != True:
@@ -560,47 +586,18 @@ def main():
 
         # Display Portfolio
         if choice == '0':
-            perCoin = False
-            if DISPLAYPROFIT:
-                x = input("Display Profit Per Coin? [y/n] ")
-                if x == 'y':
-                    perCoin = True
-
             currencies = ['usd', 'sgd']
-            totalDict = {}
+            total_dict = {}
+            per_coin = False
+
             for currency in currencies:
-                price_df = getPriceDF(currency)
+                price_df = data.getPriceDF(currency, price_dict)
                 total = price_df['TOTAL'].sum()
-                totalDict[currency] = total
-                pd.set_option('precision', 2)
-                totalPerPlatform = {}
-                for platform in price_df.columns:
-                    totalPerPlatform[platform] = price_df[platform].sum()
-                temp_df = pd.DataFrame(totalPerPlatform, index=['TOTAL'])
-                price_df = price_df.append(temp_df)
-                pd.options.display.max_rows = len(COINS) + 1
 
-                portfolio_total = price_df.loc['TOTAL', 'TOTAL']
-                price_df.insert(len(price_df.columns), '%', [
-                    "{:.2f}".format((x / portfolio_total) * 100)
-                    for x in price_df['TOTAL'].values
-                ])
-                pd.options.display.max_columns += 1
-
-                if perCoin:
-                    profit_per_coin = getProfitPerCoin()
-                    price_df.insert(len(price_df.columns), 'PROFIT', [
-                        "{:.2f}".format(x['PROFIT'])
-                        if x['PROFIT'] != 'NA' else "NA"
-                        for x in profit_per_coin.values()
-                    ] + [
-                        "{:.2f}".format(
-                            sum([
-                                x['PROFIT'] if x['PROFIT'] != 'NA' else 0
-                                for x in profit_per_coin.values()
-                            ]))
-                    ])
-                    pd.options.display.max_columns += 1
+                addTotalPerPlatformPriceDF(price_df, total_dict, currency,
+                                           total, data)
+                if DISPLAY_PROFIT:
+                    per_coin = addProfitPerCoinPriceDF(data, price_dict_all, price_df, per_coin)
 
                 print(price_df)
 
@@ -613,61 +610,12 @@ def main():
                 print("-" * len(heading))
                 print()
 
-            totalDeposited = deposit_df['AMOUNT'].sum()
-            totalWithDrawn = withdrawal_df['AMOUNT'].sum()
-            currentPL = totalWithDrawn + totalDict['sgd'] - totalDeposited
-            percentagePL = (currentPL / totalDeposited) * 100
-            SGDheading = "Portfolio summary in SGD:"
-            USDheading = 'Portfolio summary in USD:'
+            displayPortfolioSummary(data, total_dict, USDSGD)
+            if per_coin:
+                displayProfitPerCoin(data.getProfitPerCoin, True if input("Display Inactive Coins? [y/n] ") == 'y' else False)
 
-            print('{:<40s}'.format("-" * len(SGDheading)), end='')
-            print('{:<40s}'.format("-" * len(USDheading)))
-
-            print('{:<40s}'.format(SGDheading), end='')
-            print('{:<40s}'.format(USDheading))
-
-            print('{:<40s}'.format("-" * len(SGDheading)), end='')
-            print('{:<40s}'.format("-" * len(USDheading)))
-
-            print('{:<40s}'.format(
-                'Total deposited: ${:.2f}'.format(totalDeposited)),
-                  end='')
-            print('{:<40s}'.format('Total deposited: ${:.2f}'.format(
-                totalDeposited / USDSGD)))
-
-            print('{:<40s}'.format(
-                'Total withdrawn: ${:.2f}'.format(totalWithDrawn)),
-                  end='')
-            print('{:<40s}'.format('Total withdrawn: ${:.2f}'.format(
-                totalWithDrawn / USDSGD)))
-
-            print('{:<40s}'.format('Portfolio value: ${:.2f}'.format(
-                totalDict['sgd'])),
-                  end='')
-            print('{:<40s}'.format('Portfolio value: ${:.2f}'.format(
-                totalDict['usd'])))
-
-            print('{:<40s}'.format('Total P/L: ${:.2f} ({:.2f}%)'.format(
-                totalWithDrawn + totalDict['sgd'] - totalDeposited,
-                percentagePL)),
-                  end='')
-            print('{:<40s}'.format('Total P/L: ${:.2f} ({:.2f}%)'.format(
-                (totalWithDrawn / USDSGD) + totalDict['usd'] -
-                (totalDeposited / USDSGD), percentagePL)))
-
-            change_df = getPortfolioChange(percentagePL, currentPL)
-            displayPortfolioChange(change_df)
-
-            if perCoin:
-                printHeading('Profit Per Coin:')
-                inactiveCoin = False
-                x = input("Display Inactive Coins? [y/n] ")
-                if x == 'y':
-                    inactiveCoin = True
-                print()
-                displayProfitPerCoin(getProfitPerCoin, inactiveCoin)
         elif choice == 'z':
-            updateAveragePrice()
+            data.updateAveragePrice()
         # Deposit
         elif choice == '1':
             displayCoinsAvailable(COINS)
@@ -866,16 +814,16 @@ def main():
 
         # Save and Exit
         elif choice == '9':
-            save_data(portfolio_df, record_df, deposit_df, withdrawal_df, tx_df,
-              average_cost_df, type_df, coin_id_df, updateAveragePrice,
-              getPriceDF, engine_1, engine_2, DATE)
+            save_data(portfolio_df, record_df, deposit_df, withdrawal_df,
+                      tx_df, average_cost_df, type_df, coin_id_df,
+                      updateAveragePrice, getPriceDF, engine_1, engine_2, DATE)
             Exit = True
 
         # Save
         elif choice == '10':
-            save_data(portfolio_df, record_df, deposit_df, withdrawal_df, tx_df,
-              average_cost_df, type_df, coin_id_df, updateAveragePrice,
-              getPriceDF, engine_1, engine_2, DATE)
+            save_data(portfolio_df, record_df, deposit_df, withdrawal_df,
+                      tx_df, average_cost_df, type_df, coin_id_df,
+                      updateAveragePrice, getPriceDF, engine_1, engine_2, DATE)
 
         # Exit
         elif choice == '11':

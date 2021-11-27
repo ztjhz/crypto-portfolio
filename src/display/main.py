@@ -100,6 +100,7 @@ def display_graph_web(record_df):
 
 
 def displayProfitPerCoin(getProfitPerCoin, inactive=False):
+    printHeading('Profit Per Coin:')
     profit_per_coin = getProfitPerCoin(all=True)
     for v in profit_per_coin.values():
         if v['PROFIT'] != "NA":
@@ -127,3 +128,52 @@ def displayProfitPerCoin(getProfitPerCoin, inactive=False):
         printHeading("Inactive coins:")
         print(df[(df['Active'] == False) & (df['%'] != 'NA')].sort_values(
             by='PROFIT', ascending=True).drop("Active", axis=1))
+
+
+def displayPortfolioSummary(data, total_dict, USDSGD):
+    """ 
+    Display summary of portfolio (Deposit, Withdrawal and Profit)
+
+    Display change of profit over time in days (1, 7, 30, 60, 90, 120, 180, 270, 365)
+    """
+    totalDeposited = data.getTotalDeposit()
+    totalWithDrawn = data.getTotalWithdrawal()
+    currentPL = totalWithDrawn + total_dict['sgd'] - totalDeposited
+    percentagePL = (currentPL / totalDeposited) * 100
+    SGDheading = "Portfolio summary in SGD:"
+    USDheading = 'Portfolio summary in USD:'
+
+    print('{:<40s}'.format("-" * len(SGDheading)), end='')
+    print('{:<40s}'.format("-" * len(USDheading)))
+
+    print('{:<40s}'.format(SGDheading), end='')
+    print('{:<40s}'.format(USDheading))
+
+    print('{:<40s}'.format("-" * len(SGDheading)), end='')
+    print('{:<40s}'.format("-" * len(USDheading)))
+
+    print('{:<40s}'.format('Total deposited: ${:.2f}'.format(totalDeposited)),
+          end='')
+    print('{:<40s}'.format('Total deposited: ${:.2f}'.format(totalDeposited /
+                                                             USDSGD)))
+
+    print('{:<40s}'.format('Total withdrawn: ${:.2f}'.format(totalWithDrawn)),
+          end='')
+    print('{:<40s}'.format('Total withdrawn: ${:.2f}'.format(totalWithDrawn /
+                                                             USDSGD)))
+
+    print('{:<40s}'.format('Portfolio value: ${:.2f}'.format(
+        total_dict['sgd'])),
+          end='')
+    print('{:<40s}'.format('Portfolio value: ${:.2f}'.format(
+        total_dict['usd'])))
+
+    print('{:<40s}'.format('Total P/L: ${:.2f} ({:.2f}%)'.format(
+        totalWithDrawn + total_dict['sgd'] - totalDeposited, percentagePL)),
+          end='')
+    print('{:<40s}'.format('Total P/L: ${:.2f} ({:.2f}%)'.format(
+        (totalWithDrawn / USDSGD) + total_dict['usd'] -
+        (totalDeposited / USDSGD), percentagePL)))
+
+    change_df = data.getPortfolioChange(percentagePL, currentPL)
+    displayPortfolioChange(change_df)
