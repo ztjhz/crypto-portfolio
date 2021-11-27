@@ -161,68 +161,6 @@ def addTransactionFee(remarks):
     add_transactions(platform, coin, quantity, Type, remarks)
 
 
-# save to database
-def save_data():
-    global portfolio_df
-    global record_df
-    updateAveragePrice()
-
-    engines = [engine_1, engine_2]
-
-    price_df = getPriceDF('sgd')
-    total = price_df['TOTAL'].sum()
-    totalDeposited = deposit_df['AMOUNT'].sum()
-    totalWithDrawn = withdrawal_df['AMOUNT'].sum()
-    totalPL = totalWithDrawn + total - totalDeposited
-    percentagePL = (totalPL / totalDeposited) * 100
-
-    if DATE not in list(record_df.index.values):
-        new_df = pd.DataFrame(
-            {
-                'TOTAL DEPOSITED': [totalDeposited],
-                'TOTAL WITHDRAWN': [totalWithDrawn],
-                'PORTFOLIO VALUE': [total],
-                'TOTAL P/L': [totalPL],
-                '% P/L': [percentagePL]
-            },
-            index=[DATE])
-        new_df.index.name = 'DATE'
-        record_df = record_df.append(new_df)
-    else:
-        record_df.loc[DATE, 'TOTAL DEPOSITED'] = totalDeposited
-        record_df.loc[DATE, 'TOTAL WITHDRAWN'] = totalWithDrawn
-        record_df.loc[DATE, 'PORTFOLIO VALUE'] = total
-        record_df.loc[DATE, 'TOTAL P/L'] = totalPL
-        record_df.loc[DATE, '% P/L'] = percentagePL
-
-    success = False
-
-    while success == False:
-        try:
-            for engine in engines:
-                portfolio_df.to_sql("portfolio",
-                                    con=engine,
-                                    if_exists="replace")
-                tx_df.to_sql("transactions", con=engine, if_exists="replace")
-                deposit_df.to_sql("deposits", con=engine, if_exists="replace")
-                withdrawal_df.to_sql("withdrawals",
-                                     con=engine,
-                                     if_exists="replace")
-                record_df.to_sql("records", con=engine, if_exists="replace")
-                average_cost_df.to_sql("average_costs",
-                                       con=engine,
-                                       if_exists="replace")
-                coin_id_df.to_sql("coin_id", con=engine, if_exists="replace")
-                type_df.to_sql("types", con=engine, if_exists="replace")
-
-                print(f"Saved at {engine.url}")
-                success = True
-        except IOError:
-            print("IOError! Trying again...")
-
-    success = False
-
-
 def getPortfolioChange(percentagePL, currentPL):
     currentValue = percentagePL
     days = [1, 7, 30, 60, 90, 120, 180, 270, 365]
@@ -928,12 +866,16 @@ def main():
 
         # Save and Exit
         elif choice == '9':
-            save_data()
+            save_data(portfolio_df, record_df, deposit_df, withdrawal_df, tx_df,
+              average_cost_df, type_df, coin_id_df, updateAveragePrice,
+              getPriceDF, engine_1, engine_2, DATE)
             Exit = True
 
         # Save
         elif choice == '10':
-            save_data()
+            save_data(portfolio_df, record_df, deposit_df, withdrawal_df, tx_df,
+              average_cost_df, type_df, coin_id_df, updateAveragePrice,
+              getPriceDF, engine_1, engine_2, DATE)
 
         # Exit
         elif choice == '11':
