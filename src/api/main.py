@@ -1,6 +1,9 @@
 import requests
 from requests_html import HTMLSession
 
+import json
+import time
+
 
 def get_yahoo_finance_USD_SGD_rate():
     url = "https://sg.finance.yahoo.com/quote/USDSGD=X/"
@@ -43,3 +46,26 @@ def get_price_all(coin_id_df):
     r = requests.get('https://api.coingecko.com/api/v3/simple/price',
                      params=payload)
     return r.json()
+
+
+def getHistoricalPrice(coinID, date, currency='usd'):
+    #coingecko format: dd-mm-yyyy
+    query_date = date[:2] + '-' + date[3:5] + '-' + date[6:]
+    r = requests.get(
+        'https://api.coingecko.com/api/v3/coins/{}/history?date={}&localization=false'
+        .format(coinID, query_date))
+    success = False
+    price = 0
+    if r.status_code == 404:
+        return 0
+    while not success:
+        try:
+            price = r.json()['market_data']['current_price'][currency]
+            success = True
+        except json.decoder.JSONDecodeError:
+            print('Json decoder error! Trying again...')
+            time.sleep(5)
+            r = requests.get(
+                'https://api.coingecko.com/api/v3/coins/{}/history?date={}&localization=false'
+                .format(coinID, query_date))
+    return price

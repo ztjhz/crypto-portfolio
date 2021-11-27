@@ -1,81 +1,32 @@
 """ Libararies """
 import pandas as pd
 import datetime
-import json
 import time
 import os
 from pprint import pprint
 
-from selenium.webdriver import Chrome
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.support.ui import WebDriverWait
-
 from sqlalchemy import create_engine
-from dotenv import load_dotenv
 """ -------------------------------------- API calls -------------------------------------- """
 from src.api.main import *
 """ -------------------------------------- Displays -------------------------------------- """
 from src.display.main import *
-
-
-def read_data():
-
-    portfolio_df = pd.read_sql_table("portfolio", engine_1, index_col="SYMBOL")
-    portfolio_df.sort_index(inplace=True)
-
-    tx_df = pd.read_sql_table("transactions", engine_1, index_col="TX_ID")
-
-    withdrawal_df = pd.read_sql_table("withdrawals",
-                                      engine_1,
-                                      index_col="WITHDRAWAL_ID")
-
-    deposit_df = pd.read_sql_table("deposits",
-                                   engine_1,
-                                   index_col="DEPOSIT_ID")
-
-    record_df = pd.read_sql_table("records", engine_1, index_col="DATE")
-
-    average_cost_df = pd.read_sql_table("average_costs",
-                                        engine_1,
-                                        index_col="SYMBOL")
-
-    coin_id_df = pd.read_sql_table("coin_id", engine_1, index_col="SYMBOL")
-
-    type_df = pd.read_sql_table("types", engine_1, index_col="TYPE_ID")
-
-    return portfolio_df, tx_df, withdrawal_df, deposit_df, record_df, average_cost_df, coin_id_df, type_df
-
-
-load_dotenv()
-USERNAME = os.getenv("COIN_GECKO_USERNAME")
-PASSWORD = os.getenv("COIN_GECKO_PASSWORD")
-EXECUTABLE_PATH = os.getenv("CHROME_WEBDRIVER_EXECUTABLE_PATH")
-DISPLAYPROFIT = False
-CASHBACK = ["3% CASHBACK", "NETFLIX REBATE", "SPOTIFY REBATE", "CRYPTO PAY"]
+""" -------------------------------------- CoinGecko -------------------------------------- """
+from src.coingecko.main import *
+""" -------------------------------------- Env -------------------------------------- """
+from src.env.main import *
+""" -------------------------------------- Sqlite -------------------------------------- """
+from src.sqlite.main import *
 
 # get exchange rate data
 print("Getting USDSGD rate...")
 USDSGD = get_yahoo_finance_USD_SGD_rate()
 print("Obtained USDSGD rate!\n")
 
-DATE = datetime.date.today().strftime('%d/%m/%Y')
-record_date = datetime.date.today().strftime('%d-%m-%Y')
-# Go back in time
-# DATE = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d/%m/%Y')
-# record_date = (datetime.date.today() - datetime.timedelta(days=1)).strftime('%d-%m-%Y')
-readFileName = "crypto.db"
-recordFolderName = f"Record/{datetime.date.today().strftime('%Y-%m')}"
 if not os.path.exists(recordFolderName):
     os.makedirs(recordFolderName)
     print(recordFolderName, 'created!')
-recordFileName = f'{recordFolderName}/{record_date}.db'
-averagePriceFileName = 'average_price.json'
 
-engine_1 = create_engine(f'sqlite:///{readFileName}', echo=False)
-engine_2 = create_engine(f'sqlite:///{recordFileName}', echo=False)
+engine_1, engine_2 = initialise_engine(readFileName, recordFileName)
 
 # depost_df, withdrawal_df, record_df are in sgd
 # average_cost_df is in usd
@@ -83,8 +34,9 @@ success = False
 while success == False:
     try:
         print(f"Reading {readFileName}...")
+
         portfolio_df, tx_df, withdrawal_df, deposit_df, record_df, average_cost_df, coin_id_df, type_df = read_data(
-        )
+            engine_1)
         success = True
         print(f"{readFileName} has been read successfully!")
     except IOError:
@@ -271,142 +223,6 @@ def save_data():
     success = False
 
 
-def updateCoinGecko():
-    opts = Options()
-    opts.headless = False
-
-    username = USERNAME
-    password = PASSWORD
-    executable_path = EXECUTABLE_PATH
-    portfolio_url = 'https://www.coingecko.com/en/portfolio'
-
-    browser = Chrome(options=opts, executable_path=executable_path)
-    browser.implicitly_wait(10)
-
-    browser.get(portfolio_url)
-
-    # accept cookies
-    browser.find_element_by_xpath(
-        "//button[@data-action='click->cookie-note#accept']").click()
-
-    # Log in
-    browser.find_element_by_xpath(
-        "//button[@data-target = '#signInModal']").click()
-    browser.find_element_by_id('signInEmail').send_keys(f'{username}')
-    browser.find_element_by_id('signInPassword').send_keys(f'{password}')
-    browser.find_element_by_xpath("//input[@value = 'Login']").submit()
-
-    updated = False
-
-    while not updated:
-        if browser.current_url != portfolio_url:
-            browser.get(portfolio_url)
-        # Get links to the different coins
-        elements = browser.find_elements_by_xpath(
-            "//td[@class = 'text-right col-gecko no-wrap holding-val']/a")
-
-        all_links = {}
-        quantity_list = []
-        unstarList = []
-        for element in elements:
-            link = element.get_attribute('href')
-            oldQuantity, symbol = element.find_elements_by_xpath(
-                ".//div[@class='text-black']/span")[3].text.split(' ')
-
-            if symbol not in portfolio_df.index:
-                unstarList.append(symbol)
-                continue
-            newQuantity = str(portfolio_df.loc[symbol, 'TOTAL'])
-            price = average_cost_df.loc[symbol, 'AVERAGE COST']
-            all_links[link] = [symbol, newQuantity, price]
-            if oldQuantity != newQuantity:
-                quantity_list.append(symbol)
-
-        for symbol in unstarList:
-            unstarButton = browser.find_element_by_xpath(
-                f"//td[@class='pl-1 pr-0']/i[@data-coin-symbol='{symbol.lower()}']"
-            )
-            unstarButton.click()
-            confirmationButton = browser.find_element_by_xpath(
-                "//button[@id='unfavourite-coin-confirm-button']")
-            confirmationButton.click()
-            while len(
-                    browser.find_elements_by_xpath(
-                        f"//td[@class='pl-1 pr-0']/i[@data-coin-symbol='{symbol.lower()}']"
-                    )) != 0:
-                pass
-            print(f'{symbol} has been removed!')
-
-        for link, data in all_links.items():
-            # go to coin portfolio page
-            while browser.current_url != link:
-                browser.get(link)
-
-            coin_symbol = data[0]
-            quantity = data[1]
-            price = data[2]
-
-            update_price = False
-            update_quantity = False
-
-            try:
-                # click on edit button
-                edit_button = browser.find_element_by_xpath(
-                    "//td/a[@class='text-primary']")
-                edit_button.click()
-                transaction_type = 'edit'
-                current_quantity = browser.find_element_by_xpath(
-                    "//td[@class='text-right']/span[@class='text-green']"
-                ).text.lstrip("+")
-
-            except NoSuchElementException:
-                # add new transaction
-                new_transaction_button = browser.find_element_by_xpath(
-                    "//div/a[@data-action='click->portfolio-coin-transactions-new#updateCoinIdValue']"
-                )
-                new_transaction_button.click()
-                transaction_type = 'new'
-                current_quantity = 0
-
-            # enter new value into quantity
-            quantity_field = browser.find_element_by_xpath(
-                f"//input[@id='portfolio-coin-transactions-{transaction_type}_portfolio_coin_transaction_quantity']"
-            )
-            if current_quantity != quantity:
-                quantity_field.clear()
-                quantity_field.send_keys(quantity)
-                update_quantity = True
-            price_element = browser.find_element_by_id(
-                f"portfolio-coin-transactions-{transaction_type}_portfolio_coin_transaction_price"
-            )
-            WebDriverWait(
-                browser,
-                10).until(lambda x: price_element.get_attribute('value') != '')
-            current_price = float(price_element.get_attribute('value'))
-            if current_price != price:
-                browser.execute_script(
-                    f"document.getElementById('portfolio-coin-transactions-{transaction_type}_portfolio_coin_transaction_price').value={price}"
-                )
-                update_price = True
-
-            if update_price == True or update_quantity == True:
-                quantity_field.send_keys(Keys.ENTER)
-            if update_price == True and update_quantity == True:
-                print(
-                    f'{quantity} {coin_symbol} (${price}) has been updated on CoinGecko!'
-                )
-            elif update_price == True:
-                print(
-                    f'{coin_symbol} (${price}) has been updated on CoinGecko!')
-            elif update_quantity == True:
-                print(
-                    f'{quantity} {coin_symbol} has been updated on CoinGecko!')
-
-        updated = True
-
-    browser.quit()
-
-
 def getPortfolioChange(percentagePL, currentPL):
     currentValue = percentagePL
     days = [1, 7, 30, 60, 90, 120, 180, 270, 365]
@@ -438,29 +254,6 @@ def getPortfolioChange(percentagePL, currentPL):
             df.loc[day, '%'] = '{:.2f}'.format(change)
 
     return df
-
-
-def getHistoricalPrice(coinID, date, currency='usd'):
-    #coingecko format: dd-mm-yyyy
-    query_date = date[:2] + '-' + date[3:5] + '-' + date[6:]
-    r = requests.get(
-        'https://api.coingecko.com/api/v3/coins/{}/history?date={}&localization=false'
-        .format(coinID, query_date))
-    success = False
-    price = 0
-    if r.status_code == 404:
-        return 0
-    while not success:
-        try:
-            price = r.json()['market_data']['current_price'][currency]
-            success = True
-        except json.decoder.JSONDecodeError:
-            print('Json decoder error! Trying again...')
-            time.sleep(5)
-            r = requests.get(
-                'https://api.coingecko.com/api/v3/coins/{}/history?date={}&localization=false'
-                .format(coinID, query_date))
-    return price
 
 
 # calculate average purchasing price from entire transaction history
@@ -1148,7 +941,7 @@ def main():
 
         # Display Portfolio (Update CoinGecko)
         elif choice == 'x':
-            updateCoinGecko()
+            updateCoinGecko(portfolio_df, average_cost_df)
 
         # add cashback
         elif choice == 'c':
