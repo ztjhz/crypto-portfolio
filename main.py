@@ -35,7 +35,7 @@ def main():
 
         choice = input("Enter your choice: ")
 
-        # Display Portfolio
+        # ------------- Display Portfolio ---------------
         if choice == '0':
             currencies = ['usd', 'sgd']
             total_dict = {}
@@ -62,7 +62,7 @@ def main():
         elif choice == 'z':
             data.updateAveragePrice()
 
-        # Deposit
+        # ------------- Deposit -------------
         elif choice == '1':
             displayCoinsAvailable(COINS)
             coin = COINS[int(input('Enter choice: '))]
@@ -75,7 +75,7 @@ def main():
             remarks = input('Enter your remarks: ')
             data.deposit(platform, amt, coin, quantity, remarks)
 
-        # Withdrawal
+        # ------------- Withdrawal -------------
         elif choice == '2':
             displayCoinsAvailable(data.getCoin())
             coin = COINS[int(input('Enter choice: '))]
@@ -88,7 +88,7 @@ def main():
             remarks = input('Enter your remarks: ')
             data.withdraw(platform, amt, coin, quantity, remarks)
 
-        # Transfer coin from one platform to another
+        # ------------- Transfer coin from one platform to another -------------
         elif choice == '3':
             displayCoinsAvailable(COINS)
             coin = COINS[int(input('Enter choice: '))]
@@ -111,7 +111,7 @@ def main():
             if tx.lower() == "y":
                 data.addTransactionFee(remarks)
 
-        # Convert from one coin to another
+        # ------------- Convert from one coin to another -------------
         elif choice == '4':
             displayPlatformsAvailable(PLATFORM)
             platform = PLATFORM[int(input('Enter choice: '))]
@@ -133,11 +133,11 @@ def main():
             if tx.lower() == "y":
                 data.addTransactionFee(remarks)
 
-        # Display Database
+        # ------------- Display Database -------------
         elif choice == '5':
             data.printDF()
 
-        # Add Transaction
+        # ------------- Add Transaction -------------
         elif choice == '6':
             displayPlatformsAvailable(PLATFORM)
             platform = PLATFORM[int(input("Enter choice: "))]
@@ -167,7 +167,7 @@ def main():
 
             data.add_transactions(platform, coin, quantity, _type, remarks)
 
-        # Add / Remove Coin
+        # ------------- Add / Remove Coin -------------
         elif choice == '7':
             choice2 = input('Add (a) / Remove (r): ')
             if choice2.lower() == 'a':
@@ -208,7 +208,7 @@ def main():
 
             price_dict = get_price(data.getCoinIDParam())
 
-        # Add / Remove Platform
+        # ------------- Add / Remove Platform -------------
         elif choice == '8':
             choice2 = input('Add (a) / Remove (r): ')
             if choice2.lower() == 'a':
@@ -221,25 +221,25 @@ def main():
                 data.removePlatform(platform)
                 print(f'\n{platform} has been removed\n')
 
-        # Save and Exit
+        # ------------- Save and Exit -------------
         elif choice == '9':
             data.save_data()
             Exit = True
 
-        # Save
+        # ------------- Save -------------
         elif choice == '10':
             data.save_data()
 
-        # Exit
+        # ------------- Exit -------------
         elif choice == '11':
             Exit = True
 
-        # Display Portfolio (Update CoinGecko)
+        # ------------- Update CoinGecko -------------
         elif choice == 'x':
             symbols, symbol_total_df, symbol_cost_df = data.getCoinGeckoVar()
             updateCoinGecko(symbols, symbol_total_df, symbol_cost_df)
 
-        # add cashback
+        # ------------- add cashback -------------
         elif choice == 'c':
             for i in range(len(CASHBACK)):
                 print("{}. {}".format(i, CASHBACK[i]))
@@ -252,13 +252,16 @@ def main():
 
             data.add_transactions(platform, coin, quantity, _type, remarks)
 
+        # ------------- process transaction csv file -------------
         elif choice == 'u':
             data.uploadCryptoTransaction()
 
+        # ------------- display matplotlib graph -------------
         elif choice == 'g':
             record_index, record_total_pl = data.getDisplayGraphVar()
             display_graph(record_index, record_total_pl)
 
+        # ------------- display web graph -------------
         elif choice == 'gg':
             record_index, record_total_pl, record_total_deposited_withdrawn, record_portfolio_value = data.getDisplayGraphWebVar(
             )
