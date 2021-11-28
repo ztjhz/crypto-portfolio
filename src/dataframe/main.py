@@ -330,69 +330,69 @@ class Data:
                     print(f"{i}. {crypto_earn_types[i]}")
                 remarks = crypto_earn_types[int(input("Select the type: "))]
                 self.add_transactions("APP", coin, quantity, 'CRYPTO EARN',
-                                        remarks)
+                                      remarks)
 
             # ------------------------------- MCO Card Staking Rewards ------------------------
             elif transaction_type == 'mco_stake_reward':
                 remarks = "CRYPTO.COM APP STAKING REWARD"
-                self.add_transactions('APP', coin, quantity,
-                                        "STAKING REWARD", remarks)
+                self.add_transactions('APP', coin, quantity, "STAKING REWARD",
+                                      remarks)
 
             # ------------------------------- Card Cashback + Rebate ----------------------------
             elif transaction_type == 'referral_card_cashback' or transaction_type == 'reimbursement':
                 remarks = row['Transaction Description']
                 self.add_transactions("APP", coin, quantity, 'CASHBACK',
-                                        remarks)
+                                      remarks)
 
             # ------------------------------- Cash Back Reversal ------------------------------------
             elif transaction_type == 'reimbursement_reverted' or transaction_type == 'card_cashback_reverted':
                 remarks = row['Transaction Description']
                 self.add_transactions("APP", coin, -quantity,
-                                        'CASHBACK REVERSAL', remarks)
+                                      'CASHBACK REVERSAL', remarks)
 
             # ---------------------------------- Crypto.com Adjustment (Credit) ----------------------------
             elif transaction_type == 'admin_wallet_credited':
                 remarks = row['Transaction Description']
                 self.add_transactions("APP", coin, quantity,
-                                        'CRYPTO.COM ADJUSTMENT', remarks)
+                                      'CRYPTO.COM ADJUSTMENT', remarks)
 
             # ---------------------------------- Supercharger Deposit / Withdrawal ---------------------
             elif transaction_type == 'supercharger_deposit':
                 remarks = f"Transfer {quantity} {coin} from APP to SUPERCHARGER"
                 self.add_transactions("APP", coin, -quantity, "TRANSFER",
-                                        remarks)
+                                      remarks)
                 self.add_transactions("SUPERCHARGER", coin, quantity,
-                                        "TRANSFER", remarks)
+                                      "TRANSFER", remarks)
             elif transaction_type == 'supercharger_withdrawal':
                 remarks = f"Transfer {quantity} {coin} from SUPERCHARGER to APP"
                 self.add_transactions("APP", coin, quantity, "TRANSFER",
-                                        remarks)
+                                      remarks)
                 self.add_transactions("SUPERCHARGER", coin, -quantity,
-                                        "TRANSFER", remarks)
+                                      "TRANSFER", remarks)
 
             # ------------------------- Transfer from App to Exchange or Exchange to App --------------
             elif transaction_type == 'exchange_to_crypto_transfer':
                 remarks = f"Transfer {quantity} {coin} from EXCHANGE to APP"
                 self.add_transactions("APP", coin, quantity, "TRANSFER",
-                                        remarks)
-                self.add_transactions("EXCHANGE", coin, -quantity,
-                                        "TRANSFER", remarks)
+                                      remarks)
+                self.add_transactions("EXCHANGE", coin, -quantity, "TRANSFER",
+                                      remarks)
             elif transaction_type == 'crypto_to_exchange_transfer':
                 remarks = f"Transfer {quantity} {coin} from APP to EXCHANGE"
                 self.add_transactions("APP", coin, -quantity, "TRANSFER",
-                                        remarks)
+                                      remarks)
                 self.add_transactions("EXCHANGE", coin, quantity, "TRANSFER",
-                                        remarks)
+                                      remarks)
 
             # ---------------------------------- Convert dust crypto to CRO on App ---------------------
             elif transaction_type == 'dust_conversion_credited':
                 remarks = "CONVERT DUST CRYPTO TO CRO ON APP"
                 self.add_transactions("APP", coin, quantity, "CONVERT",
-                                        remarks)
+                                      remarks)
             elif transaction_type == 'dust_conversion_debited':
                 remarks = f"CONVERT DUST {coin} TO CRO ON APP"
                 self.add_transactions("APP", coin, -quantity, "CONVERT",
-                                        remarks)
+                                      remarks)
 
             # ---------------------------------- Convert crypto in App ---------------------------------
             elif transaction_type == 'crypto_exchange':
@@ -401,18 +401,18 @@ class Data:
                 toCoin = row['To Currency']
                 toQuantity = row['To Amount']
                 remarks = f"Convert from {abs(fromQuantity)} {fromCoin} to {toQuantity} {toCoin} on APP"
-                self.add_transactions("APP", fromCoin, fromQuantity,
-                                        "CONVERT", remarks)
+                self.add_transactions("APP", fromCoin, fromQuantity, "CONVERT",
+                                      remarks)
                 self.add_transactions("APP", toCoin, toQuantity, "CONVERT",
-                                        remarks)
+                                      remarks)
 
             # ---------------------------------- Supercharger App reward -------------------------------
             elif transaction_type == 'supercharger_reward_to_app_credited':
                 remarks = "CRYPTO.COM SUPERCHARGER APP REWARD"
                 if coin not in self.__coin_id_df.index:
                     self.addCoin(coin)
-                self.add_transactions("APP", coin, quantity,
-                                        "STAKING REWARD", remarks)
+                self.add_transactions("APP", coin, quantity, "STAKING REWARD",
+                                      remarks)
 
             # ---------------------------------- Buy Crypto via Xfers -----------------------------
             elif transaction_type == 'xfers_purchase':
@@ -690,7 +690,9 @@ class Data:
         """
         record_index = self.__record_df.index
         record_total_pl = self.__record_df["TOTAL P/L"]
-        record_total_deposited_withdrawn = self.__record_df[["TOTAL DEPOSITED", "TOTAL WITHDRAWN"]]
+        record_total_deposited_withdrawn = self.__record_df[[
+            "TOTAL DEPOSITED", "TOTAL WITHDRAWN"
+        ]]
         record_portfolio_value = self.__record_df["PORTFOLIO VALUE"]
         return record_index, record_total_pl, record_total_deposited_withdrawn, record_portfolio_value
 
@@ -765,3 +767,6 @@ class Data:
         print(self.__withdrawal_df)
         print('\nTransaction:')
         print(self.__tx_df)
+
+    def getRecordDF(self):
+        return self.__record_df
