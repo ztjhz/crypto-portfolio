@@ -16,7 +16,8 @@ def get_yahoo_finance_USD_SGD_rate():
 
     USDSGD = float(
         response.html.xpath(
-            "//div[@data-reactid='28']/span[@data-reactid='29']")[0].text)
+            "//div[@data-reactid='28']/fin-streamer[@data-reactid='29']")[0].text)
+    print(USDSGD)
     return (USDSGD)
 
 
