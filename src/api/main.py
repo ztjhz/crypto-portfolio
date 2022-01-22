@@ -13,10 +13,9 @@ def get_yahoo_finance_USD_SGD_rate():
         response = session.get(url)
     except requests.exceptions.RequestException as e:
         print(e)
-
     USDSGD = float(
         response.html.xpath(
-            "//div[@data-reactid='28']/fin-streamer[@data-reactid='29']")[0].text)
+            "//fin-streamer[@data-field='regularMarketPrice'][@data-symbol='SGD=X']")[0].text)
     print(USDSGD)
     return (USDSGD)
 
