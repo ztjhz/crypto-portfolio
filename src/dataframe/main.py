@@ -527,7 +527,7 @@ class Data:
         self.add_transactions(platform, coin, quantity, 'DEPOSIT', remarks)
 
     # withdraw
-    def withdraw(self, platform, amt: float, coin, quantity: float, remarks):
+    def __withdraw(self, platform, amt: float, coin, quantity: float, remarks):
         db = pd.DataFrame(
             {
                 'DATE': self.__DATE,
